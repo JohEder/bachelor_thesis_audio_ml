@@ -32,7 +32,7 @@ class TrainingSetup():
     def run(self):
         model_name = self.setup_name
         print(f"\nrunning setup {self.normal_data}")
-        normal_train_data, val_data, test_data = self.get_normal_and_anomalous_data(self.normal_data, self.anomalous_data, all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL)
+        normal_train_data, val_data, test_data = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL)
         train_loader = torch.utils.data.DataLoader(normal_train_data, batch_size=BATCH_SIZE, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=BATCH_SIZE_VAL, shuffle=True)
         test_loader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE_VAL, shuffle=False)
@@ -91,16 +91,16 @@ class TrainingSetup():
       else:
         raise Exception("Not implemented")
 
-    def get_normal_and_anomalous_data(self, normal_classes, anomalous_classes, annotations, batch_size, batch_size_test):
-        if len((set(normal_classes) & set(anomalous_classes))) > 0:
+    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test):
+        if len((set(self.normal_data) & set(self.anomalous_data))) > 0:
           raise Exception("Intersection between normal and anomalous classes should be empty!")
 
         all_data = import_idmt_traffic_dataset(annotations)
 
-        normal_data = all_data[all_data.vehicle.isin(normal_classes)]
+        normal_data = all_data[all_data.vehicle.isin(self.normal_data)]
         normal_data = self.balance_data_by_vehicle(normal_data)
 
-        anomalous_data = all_data[all_data.vehicle.isin(anomalous_classes)]
+        anomalous_data = all_data[all_data.vehicle.isin(self.anomalous_data)]
         anomalous_data = self.balance_data_by_vehicle(anomalous_data)
 
         train_data, test_data_normal = train_test_split(normal_data, test_size=0.1, shuffle=True, random_state=config.RANDOM_SEED, stratify=normal_data.vehicle)
@@ -134,9 +134,9 @@ class TrainingSetup():
         print(f"Train Data: \n{train_data['vehicle'].value_counts()} \n\nDistribution in Train data: \n{train_data['vehicle'].value_counts(normalize=True)}")
         print(f"Test Data: \n{concatenated_test_data['vehicle'].value_counts()}\n\nDistribution in Test data: \n{concatenated_test_data['vehicle'].value_counts(normalize=True)}")
         print(f"Validation Data: \n{concatenated_val_data['vehicle'].value_counts()} \n\nDistribution in Validation data: \n{concatenated_val_data['vehicle'].value_counts(normalize=True)}")
-        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, normal_classes, MODEL_TYPES.TRANSFORMER,on_the_fly=True)
-        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, normal_classes, MODEL_TYPES.TRANSFORMER, on_the_fly=True)
-        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, normal_classes, MODEL_TYPES.TRANSFORMER, on_the_fly=True)
+        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, self.normal_data, MODEL_TYPES.TRANSFORMER,on_the_fly=True)
+        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data, MODEL_TYPES.TRANSFORMER, on_the_fly=True)
+        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data, MODEL_TYPES.TRANSFORMER, on_the_fly=True)
 
         return normal_train_data, val_data, test_data
 

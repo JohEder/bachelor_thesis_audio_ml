@@ -8,7 +8,7 @@ from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT, N_MEL
 
 class IdmtTrafficDataSet(Dataset):
 
-    def __init__(self, annotations_file, target_sample_rate, normal_classes,model_type, on_the_fly=True):
+    def __init__(self, annotations_file, target_sample_rate, normal_classes, model_type, on_the_fly=True):
         self.annotations =  annotations_file if isinstance(annotations_file, pd.DataFrame) else pd.read_csv(annotations_file)
         self.audio_dir = AUDIO_DIR #new audio dir with specrtograms
         self.audio_transformation = torchaudio.transforms.MelSpectrogram(
@@ -33,7 +33,8 @@ class IdmtTrafficDataSet(Dataset):
 
     def __getitem__(self, index):
         audio_sample_path = self._get_audio_sample_path(index)
-        label = self._get_audio_sample_label(index)
+        label = self._get_audio_sample_label(index) if self._get_audio_sample_label(index) != None else 'None'
+        #print(f"Label: {label}")
         if self.on_the_fly:
             signal, sr = torchaudio.load(audio_sample_path)
             signal = self._resample(signal, sr) #adjust sample rates
@@ -44,6 +45,7 @@ class IdmtTrafficDataSet(Dataset):
         else:
             raise Exception("Not implemented yet!")
         #label = self.normal_classes.index(label)
+        #print(f"normal classes {self.normal_classes}")
         label = 0 if label in self.normal_classes else 1
         return signal, label
 
@@ -64,4 +66,4 @@ class IdmtTrafficDataSet(Dataset):
         return path + '.wav'
 
     def _get_audio_sample_label(self, index):
-        return self.annotations.iloc[index, 9]
+        return self.annotations.iloc[index, 8]
