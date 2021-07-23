@@ -1,6 +1,7 @@
 import config
 from training_setup import TrainingSetup
 import logging
+from utils import plot_all_rocs
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,9 +33,11 @@ def generateTwoScenarios(classes, model_type):
 first_scen, second_scen = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
 
 
-all_roc_auc_scores = []
+all_roc_auc_scores = {}
 for train_scen in first_scen:
-    roc_auc= train_scen.run()
-    all_roc_auc_scores.append((train_scen.setup_name, roc_auc))
+    roc_auc_scores = train_scen.run(3)
+    all_roc_auc_scores[train_scen.setup_name] = roc_auc_scores
+
+plot_all_rocs("All ROC_AUC Scores Scenario 1")
 
 print(all_roc_auc_scores)
