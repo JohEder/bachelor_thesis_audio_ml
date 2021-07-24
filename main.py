@@ -2,6 +2,7 @@ import config
 from training_setup import TrainingSetup
 import logging
 from utils import plot_all_rocs
+import matplotlib
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,3 +45,4 @@ all_roc_auc_scores[train_scen.setup_name] = roc_auc
 
 print(all_roc_auc_scores)
 plot_all_rocs("All ROC_AUC Scores Scenario 2", all_roc_auc_scores)
+matplotlib.pyplot.show()
