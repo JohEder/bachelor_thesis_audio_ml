@@ -14,6 +14,7 @@ N_FFT=2048 #is also window size
 HOP_LENGTH=1024
 N_MELS=128
 NUMBER_OF_FRAMES = 2
+NUMBER_OF_FRAMES_AE = 4
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.csv"
@@ -21,7 +22,7 @@ test_annotatons = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_
 all_annotations_txt = "/home/johannes/datasets/IDMT_Traffic/annotation/idmt_traffic_all.txt"
 RESULT_DIR = '/home/johannes/bachelor_thesis_code/code/results/'
 
-BATCH_SIZE = 256
+BATCH_SIZE = 32
 BATCH_SIZE_VAL = 1
 
 RANDOM_SEED = 42

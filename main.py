@@ -32,12 +32,15 @@ def generateTwoScenarios(classes, model_type):
 
 first_scen, second_scen = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
 
-
 all_roc_auc_scores = {}
+"""
 for train_scen in first_scen:
-    roc_auc_scores = train_scen.run(3)
+    roc_auc_scores = train_scen.run()
     all_roc_auc_scores[train_scen.setup_name] = roc_auc_scores
-
-plot_all_rocs("All ROC_AUC Scores Scenario 1")
+"""
+train_scen = TrainingSetup(['None', 'B'], ['C', 'T', 'M'], config.MODEL_TYPES.AUTOENCODER)
+roc_auc = train_scen.run()
+all_roc_auc_scores[train_scen.setup_name] = roc_auc
 
 print(all_roc_auc_scores)
+plot_all_rocs("All ROC_AUC Scores Scenario 2", all_roc_auc_scores)

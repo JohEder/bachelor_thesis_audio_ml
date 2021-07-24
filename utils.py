@@ -32,7 +32,7 @@ def load_model(name):
   return model
 
 def plot_and_save_roc_curve(title, fp_rate, tp_rate, roc_auc):
-  plt.figure()
+  fig = plt.figure()
   plt.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")
 
   plt.xlabel('False Positive Rate')
@@ -41,20 +41,25 @@ def plot_and_save_roc_curve(title, fp_rate, tp_rate, roc_auc):
   plt.legend(loc="lower right")
   plt.savefig(config.RESULT_DIR + title + '.jpg')
   plt.show()
+  return fig
 
 def plot_and_save_loss_curve(title, losses):
-  plt.plot(losses, label='loss')
+  fig = plt.plot(losses, label='loss')
   plt.title(title)
   plt.xlabel('steps')
   plt.ylabel('loss')
   plt.savefig(config.RESULT_DIR + title + '.jpg')
   plt.show()
+  return fig
 
 def plot_all_rocs(title, roc_aucs):
+  roc_aucs = pd.DataFrame(roc_aucs, columns=roc_aucs.keys())
   plot = sns.pointplot(data=roc_aucs, join=False, palette='inferno')
+  plt.ylabel('ROC AUC Scores')
   fig = plot.get_figure()
-  fig.save_fig(config.RESULT_DIR + title + '.jpg')
+  fig.savefig(config.RESULT_DIR + title + '.jpg')
   matplotlib.pyplot.show()
+  return fig
 
 def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps=""):
   if model_type == config.MODEL_TYPES.TRANSFORMER:

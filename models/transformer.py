@@ -101,7 +101,7 @@ class PatchEmbedding(nn.Module):
 
 def patch_batch(input_batch, number_of_frames):
   #input of shape (batch_size, channels, mel_filters, frames)
-  unfold = nn.Unfold(kernel_size=(input_batch.shape[2], NUMBER_OF_FRAMES), stride=NUMBER_OF_FRAMES) #patching the spectogram
+  unfold = nn.Unfold(kernel_size=(input_batch.shape[2], number_of_frames), stride=number_of_frames) #patching the spectogram
   unfolded_batch = unfold(input_batch) #(batch_size, features, number_of_patches)
   unfolded_batch = unfolded_batch.transpose(1, 2) #(batch_size, number_of_patches, features)
   return unfolded_batch
@@ -118,7 +118,7 @@ def calculate_loss_masked(input_batch, output_batch, mask_idxs, sum_up):
   return loss_per_batch.mean()
 
 
-def train_epoch(model, train_loader, optimizer, scheduler, epoch, device):
+def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None):
   print(f"Starting Epoch {epoch}")
   epoch_loss = []
   for batch_index, (data_batch, _) in enumerate(train_loader):
@@ -141,7 +141,7 @@ def train_epoch(model, train_loader, optimizer, scheduler, epoch, device):
   return epoch_loss
 
 
-def evaluate(model, data_loader, device, number_of_batches_eval=None):
+def get_anom_scores(model, data_loader, device, number_of_batches_eval=None):
   #currently the batch size for evaluation needs to be 1
   total_anom_scores = []
   total_targets = []
@@ -151,7 +151,7 @@ def evaluate(model, data_loader, device, number_of_batches_eval=None):
     for batch_number, data in enumerate(data_loader, 0):
       if (number_of_batches_eval != None) and (batch_number > number_of_batches_eval):
         break
-      if (batch_number % 20 == 0):
+      if (batch_number % 30 == 0):
         print(f"Progress: {batch_number}/{len(data_loader)}")
       inputs, target = data
       inputs = inputs.to(device)

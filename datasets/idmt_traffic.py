@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import os
 import pandas as pd
+import config
 from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT, N_MELS
 
 class IdmtTrafficDataSet(Dataset):
@@ -11,15 +12,20 @@ class IdmtTrafficDataSet(Dataset):
     def __init__(self, annotations_file, target_sample_rate, normal_classes, model_type, on_the_fly=True):
         self.annotations =  annotations_file if isinstance(annotations_file, pd.DataFrame) else pd.read_csv(annotations_file)
         self.audio_dir = AUDIO_DIR #new audio dir with specrtograms
+        self.model_type = model_type
         self.audio_transformation = torchaudio.transforms.MelSpectrogram(
         sample_rate=SAMPLE_RATE,
         n_fft=N_FFT, # Frame Size
         hop_length=HOP_LENGTH, #here half the frame size
         n_mels=N_MELS
         )
-        self.transformation = transforms.Compose([
+        self.image_transformation = transforms.Compose([
         transforms.ToPILImage(mode='L'),
-        #transforms.RandomCrop(size=[N_MELS, NUMBER_OF_FRAMES]), #only train on random slice of the spectogram
+        transforms.ToTensor(),
+        ])
+        self.auto_encoder_transformation = transforms.Compose([
+        transforms.ToPILImage(mode='L'),
+        transforms.RandomCrop(size=[N_MELS, config.NUMBER_OF_FRAMES_AE]), #only train on random slice of the spectogram
         transforms.ToTensor(),
         ])
         self.target_sample_rate = target_sample_rate
@@ -41,7 +47,7 @@ class IdmtTrafficDataSet(Dataset):
             # signal -> (num_channels, samples) i.e. (2, 16000)
             signal  = self._mix_down(signal) #stereo to mono
             signal = self.audio_transformation(signal) #(1, 16000) -> torch.Size([1, 64, 63])
-            signal = self.transformation(signal)
+            signal = self.image_transformation(signal)#self.auto_encoder_transformation(signal) if self.model_type == MODEL_TYPES.AUTOENCODER else self.image_transformation(signal)
         else:
             raise Exception("Not implemented yet!")
         #label = self.normal_classes.index(label)
