@@ -8,6 +8,8 @@ ANOMALOUS_CLASSES = ['T', 'M', 'B']
 
 MODEL_TYPES = Enum("MODEL_TYPES", ["TRANSFORMER", "AUTOENCODER", "IDNN"])
 
+NUMBER_REPEAT_EXPERIMENT = 5
+
 #params for mel spectrogram
 SAMPLE_RATE = 22500
 N_FFT=2048 #is also window size

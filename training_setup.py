@@ -15,7 +15,7 @@ from datasets.idmt_traffic import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, roc_curve
 import logging
-from utils import load_model, plot_and_save_loss_curve, save_model, plot_and_save_roc_curve, save_hyperparams
+from utils import load_model, plot_and_save_loss_curve, save_model, plot_roc_curve, save_hyperparams
 from transformers.optimization import get_cosine_schedule_with_warmup, get_linear_schedule_with_warmup
 from transformers import AdamW
 import pytorch_model_summary as pms
@@ -47,7 +47,7 @@ class TrainingSetup():
           WEIGHT_DECAY = 0.0001
           #optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) 
           optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE)
-          EPOCHS = 5 #later over hundred
+          EPOCHS = 20 #later over hundred
           total_steps = len(train_loader) * EPOCHS
           warm_up_steps = math.ceil(total_steps * 0.1)
           scheduler = get_linear_schedule_with_warmup(optimizer, warm_up_steps, total_steps)
@@ -60,14 +60,19 @@ class TrainingSetup():
           losses = []
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
+            assert len(losses_epoch) > 1
             val_anom_scores, val_targets = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
-            if roc_auc > roc_auc_best:
+            if len(val_loader) > 50:
+              if roc_auc > roc_auc_best:
+                best_model = copy.deepcopy(transformer)
+                #model_name = save_model(model_name, transformer, epoch)
+                roc_auc_best = roc_auc
+                #print(f"saved model with best validaton in epoch{epoch}")
+            else:
               best_model = copy.deepcopy(transformer)
-              #model_name = save_model(model_name, transformer, epoch)
               roc_auc_best = roc_auc
-              #print(f"saved model with best validaton in epoch{epoch}")
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
@@ -91,11 +96,15 @@ class TrainingSetup():
             val_anom_scores, val_targets = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
-            if roc_auc > roc_auc_best:
+            if len(val_loader) > 50:
+              if roc_auc > roc_auc_best:
+                best_model = copy.deepcopy(autoencoder)
+                #model_name = save_model(model_name, transformer, epoch)
+                roc_auc_best = roc_auc
+                #print(f"saved model with best validaton in epoch{epoch}")
+            else:
               best_model = copy.deepcopy(autoencoder)
-              #model_name = save_model(model_name, transformer, epoch)
               roc_auc_best = roc_auc
-              #print(f"saved model with best validaton in epoch{epoch}")
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
@@ -104,12 +113,12 @@ class TrainingSetup():
         elif self.model_type == MODEL_TYPES.IDNN:
           raise Exception("not implemented")
         #evaluation
-        roc_auc = self.evaluate_model(best_model, test_loader, device)
+        fp_rate, tp_rate, roc_auc = self.evaluate_model(best_model, test_loader, device)
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
-        plot_and_save_loss_curve(self.setup_name, losses)
-        save_hyperparams(self.model_type,model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps="")
-      return auc_roc_scores
+        #plot_and_save_loss_curve(self.setup_name, losses)
+        save_hyperparams(self.model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps="")
+      return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc
 
 
     def evaluate_model(self, best_model, test_loader,device):
@@ -118,14 +127,14 @@ class TrainingSetup():
         test_anom_scores, test_targets = models.transformer.get_anom_scores(best_model, test_loader, device)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
-        plot_and_save_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
-        return roc_auc
+        #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
+        return fp_rate, tp_rate, roc_auc
       elif self.model_type == MODEL_TYPES.AUTOENCODER:
         test_anom_scores, test_targets = models.autoencoder.get_anom_scores(best_model, test_loader, device)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
-        plot_and_save_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
-        return roc_auc
+        #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
+        return fp_rate, tp_rate, roc_auc
       elif self.model_type == MODEL_TYPES.IDNN:
         raise Exception("Not implemented!")
 

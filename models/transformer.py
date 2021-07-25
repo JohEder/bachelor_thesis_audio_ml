@@ -137,7 +137,8 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None):
     optimizer.step()
     current_lr = scheduler.get_last_lr()
     scheduler.step()
-    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_index * len(data_batch), len(train_loader.dataset),100. * batch_index / len(train_loader), loss.item(), current_lr))
+    if batch_index % 100 == 0:
+      print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_index * len(data_batch), len(train_loader.dataset),100. * batch_index / len(train_loader), loss.item(), current_lr))
   return epoch_loss
 
 

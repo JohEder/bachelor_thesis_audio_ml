@@ -5,9 +5,32 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import os
+import training_setup
 
 from torch.utils import data
 import config
+
+def generateTwoScenarios(classes, model_type):
+    training_setups_first_scenario = []
+    for category in classes:
+        if category == 'None':
+            continue
+
+        normal_classes = ['None', category]
+        anomalous_classes = list(filter(lambda x: x not in normal_classes, classes))
+        training_setups_first_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes, model_type))
+
+
+
+
+    training_setups_second_scenario = []
+    for category in classes:
+
+        anomalous_classes = [category]
+        normal_classes = list(filter(lambda x: x not in anomalous_classes, classes))
+        training_setups_second_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes, model_type))
+
+    return training_setups_first_scenario, training_setups_second_scenario
 
 def save_model_comlicated(experiment_name, scenario, model, model_name, epoch):
   #a valid destination could be ~/results/my_experiment/scenario_1/CTBM/CTBM.pth
@@ -31,17 +54,15 @@ def load_model(name):
   model = torch.load(config.RESULT_DIR + name)
   return model
 
-def plot_and_save_roc_curve(title, fp_rate, tp_rate, roc_auc):
-  fig = plt.figure(1)
-  plt.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")
+def plot_roc_curve(title, fp_rate, tp_rate, roc_auc, axe):
+  axe.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")
 
-  plt.xlabel('False Positive Rate')
-  plt.ylabel('True Positive Rate')
-  plt.title('ROC Curve of ' + title)
-  plt.legend(loc="lower right")
-  plt.savefig(config.RESULT_DIR + title + '.jpg')
+  axe.set_xlabel('False Positive Rate')
+  axe.set_ylabel('True Positive Rate')
+  axe.set_title('ROC Curve of ' + title)
+  axe.legend(loc="lower right")
+  #axe.savefig(config.RESULT_DIR + title + '.jpg')
   #plt.show()
-  return fig
 
 def plot_and_save_loss_curve(title, losses):
   figure_2 = plt.figure(2)
@@ -49,19 +70,21 @@ def plot_and_save_loss_curve(title, losses):
   plt.title(title)
   plt.xlabel('steps')
   plt.ylabel('loss')
-  plt.savefig(config.RESULT_DIR + title + '.jpg')
+  #plt.savefig(config.RESULT_DIR + title + '.jpg')
   #plt.show()
   return figure_2
 
-def plot_all_rocs(title, roc_aucs):
+def plot_all_rocs(title, roc_aucs, axe):
   roc_aucs = pd.DataFrame(roc_aucs, columns=roc_aucs.keys())
-  plt.figure(3)
-  plot = sns.pointplot(data=roc_aucs, join=False, palette='inferno')
-  plt.ylabel('ROC AUC Scores')
-  fig_roc = plot.get_figure()
-  fig_roc.savefig(config.RESULT_DIR + title + '.jpg')
-  #matplotlib.pyplot.show()
-  return fig_roc
+  sns.pointplot(data=roc_aucs, ax=axe, join=False, palette='inferno')
+  axe.set_title(title)
+
+def convert_to_df(losses):
+  print(losses)
+  losses_map = {}
+  losses_map['loss'] = losses
+  losses_df = pd.DataFrame(losses_map, columns=losses_map.keys())
+  return losses_df
 
 def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps=""):
   if model_type == config.MODEL_TYPES.TRANSFORMER:
