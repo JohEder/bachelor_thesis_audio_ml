@@ -80,7 +80,6 @@ def plot_all_rocs(title, roc_aucs, axe):
   axe.set_title(title)
 
 def convert_to_df(losses):
-  print(losses)
   losses_map = {}
   losses_map['loss'] = losses
   losses_df = pd.DataFrame(losses_map, columns=losses_map.keys())

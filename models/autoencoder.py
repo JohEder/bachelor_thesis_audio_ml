@@ -71,6 +71,7 @@ def patch_batch_ae(input_batch):
 
 def train_epoch(model, train_loader, optimizer, epoch, device):
     print(f"Starting Epoch {epoch}")
+    model.train()
     epoch_loss = []
     for batch_index, (data_batch, _) in enumerate(train_loader):
         data_batch = patch_batch_ae(data_batch)

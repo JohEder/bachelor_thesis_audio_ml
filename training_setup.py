@@ -46,7 +46,7 @@ class TrainingSetup():
           LEARNING_RATE = 0.00001
           WEIGHT_DECAY = 0.0001
           #optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) 
-          optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE)
+          optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) #AdamW(transformer.parameters(), lr=LEARNING_RATE)
           EPOCHS = 20 #later over hundred
           total_steps = len(train_loader) * EPOCHS
           warm_up_steps = math.ceil(total_steps * 0.1)
@@ -60,7 +60,6 @@ class TrainingSetup():
           losses = []
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
-            assert len(losses_epoch) > 1
             val_anom_scores, val_targets = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
@@ -69,7 +68,7 @@ class TrainingSetup():
                 best_model = copy.deepcopy(transformer)
                 #model_name = save_model(model_name, transformer, epoch)
                 roc_auc_best = roc_auc
-                #print(f"saved model with best validaton in epoch{epoch}")
+                print(f"Model with best validaton in epoch{epoch}")
             else:
               best_model = copy.deepcopy(transformer)
               roc_auc_best = roc_auc
@@ -152,14 +151,14 @@ class TrainingSetup():
         #anomalous_data = self.balance_data_by_vehicle(anomalous_data)
 
         train_data, test_data_normal = train_test_split(normal_data, test_size=0.1, shuffle=True, random_state=config.RANDOM_SEED, stratify=normal_data.vehicle)
-        train_data, val_data_normal = train_test_split(train_data, test_size=0.01,shuffle=True, random_state=config.RANDOM_SEED, stratify=train_data.vehicle)
+        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=config.RANDOM_SEED, stratify=train_data.vehicle)
         train_data = self.adjust_sample_number_to_batch_size(train_data, batch_size)
         #print(f"training with {len(train_data)} (normal) samples")
 
         test_data_normal = self.balance_data_by_vehicle(test_data_normal) #balancing test and val data by class to avoid wrong conclusions
         val_data_normal = self.balance_data_by_vehicle(val_data_normal)
 
-        number_of_normal_test_samples_per_categroy= len(test_data_normal) // len(self.normal_data)
+        #number_of_normal_test_samples_per_categroy= len(test_data_normal) // len(self.normal_data)
         #print(f"testing with {number_of_normal_test_samples_per_categroy} normal samples")
         #print(f"Validating with {len(val_data_normal)} normal samples")
 

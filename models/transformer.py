@@ -120,6 +120,7 @@ def calculate_loss_masked(input_batch, output_batch, mask_idxs, sum_up):
 
 def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None):
   print(f"Starting Epoch {epoch}")
+  model.train()
   epoch_loss = []
   for batch_index, (data_batch, _) in enumerate(train_loader):
     #print(data_batch.shape)

@@ -6,15 +6,17 @@ from utils import plot_all_rocs, convert_to_df, plot_roc_curve, generateTwoScena
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+import datetime
 
 logging.basicConfig(level=logging.INFO)
 
 
 classes = config.CLASSES
-
 experiment_name = "standart"
+MODEL_TYPE = config.MODEL_TYPES.AUTOCENCODER
+start_time = datetime.datetime.now()
 
-first_scen, second_scen = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
+first_scen, second_scen = generateTwoScenarios(classes, MODEL_TYPE)
 
 all_roc_auc_scores_1 = {}
 
@@ -62,11 +64,14 @@ for i in range(len(second_scen)):
     sns.lineplot(data=losses_2, ax=axes_losses_2[i])
     plot_roc_curve(train_scen.setup_name, fp_rate_2, tp_rate_2, roc_2, axes_rocs_2[i])
     
-
+end_time = datetime.datetime.now()
 print(all_roc_auc_scores_2)
 plot_all_rocs("All ROC_AUC Scores Scenario 2", all_roc_auc_scores_2, axes_all_rocs[1])
 fig_all_rocs.savefig(config.RESULT_DIR + 'all_rocs.png')
 fig_losses_2.savefig(config.RESULT_DIR + 'losses_scen_2.png')
 fig_rocs_2.savefig(config.RESULT_DIR + 'rocs_scen_2.png')
-
+print(f"Total Runtime: {end_time - start_time}")
 matplotlib.pyplot.show()
+
+#first_scen[0].run()
+exit(0)
