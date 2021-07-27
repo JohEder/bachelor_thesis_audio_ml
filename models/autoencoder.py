@@ -85,7 +85,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
         loss = mse_loss(output, data_batch)
         loss.backward()                 
         optimizer.step()
-        epoch_loss.append(loss)
+        epoch_loss.append(loss.item())
         if batch_index % 100 == 0:
           print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch, batch_index * len(data_batch), len(train_loader.dataset),100. * batch_index / len(train_loader), loss.item()))
     return epoch_loss

@@ -1,5 +1,6 @@
 from posixpath import join
 import matplotlib
+from seaborn.utils import ci
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -78,6 +79,10 @@ def plot_all_rocs(title, roc_aucs, axe):
   roc_aucs = pd.DataFrame(roc_aucs, columns=roc_aucs.keys())
   sns.pointplot(data=roc_aucs, ax=axe, join=False, palette='inferno')
   axe.set_title(title)
+
+def plot_all_results(data, axe):
+  df = pd.DataFrame(data, columns=data.keys())
+  sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='Normal_Data', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
 
 def convert_to_df(losses):
   losses_map = {}

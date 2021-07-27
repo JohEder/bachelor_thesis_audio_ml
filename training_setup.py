@@ -47,7 +47,7 @@ class TrainingSetup():
           WEIGHT_DECAY = 0.0001
           #optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) 
           optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) #AdamW(transformer.parameters(), lr=LEARNING_RATE)
-          EPOCHS = 20 #later over hundred
+          EPOCHS = 5 #later over hundred
           total_steps = len(train_loader) * EPOCHS
           warm_up_steps = math.ceil(total_steps * 0.1)
           scheduler = get_linear_schedule_with_warmup(optimizer, warm_up_steps, total_steps)
@@ -80,7 +80,7 @@ class TrainingSetup():
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.AUTOENCODER)
           #print(next(iter(train_loader)).shape)
           LEARNING_RATE = 0.001
-          EPOCHS = 1
+          EPOCHS = 5
           autoencoder = models.autoencoder.AutoEncoder(input_dim=512)
           optimizer = torch.optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
 
