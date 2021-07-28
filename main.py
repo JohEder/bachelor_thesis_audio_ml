@@ -7,6 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
+import random
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,8 +15,14 @@ logging.basicConfig(level=logging.INFO)
 classes = config.CLASSES
 experiment_name = "standart"
 start_time = datetime.datetime.now()
+random.seed(config.RANDOM_SEED)
 
-first_scen, second_scen = generateTwoScenarios(classes, MODEL_TYPE)
+
+first_scen, second_scen = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
+transformer_scenario = first_scen + second_scen
+ae_1, ae_2 = generateTwoScenarios(classes, config.MODEL_TYPES.AUTOENCODER)
+autoencoder_scenario = ae_1 + ae_2
+idnn_1, _ = generateTwoScenarios(classes, config.MODEL_TYPES.IDNN)
 
 """
 all_roc_auc_scores_1 = {}
@@ -27,35 +34,43 @@ fig_losses.suptitle('Scenario 1: Loss Curves')
 
 fig_rocs, axes_rocs = plt.subplots(1, len(first_scen), figsize=(20, 5), sharex=True, sharey=True)
 fig_rocs.suptitle('Scenario 1: ROC Curves')
- """
+"""
 all_roc_scores = []
 all_model_types = []
 all_setups = []
 
-def train_and_plot(scenario, model_type, axes):
+def train_and_plot(scenario, plot_roc_and_loss=False):
     global all_roc_scores
     global all_model_types
     global all_setups
+    if plot_roc_and_loss:
+        fig_losses, axes_loss = plt.subplots(1, len(scenario), figsize=(12, 4))
+        fig_rocs, axes_rocs = plt.subplots(1, len(scenario), figsize=(12, 4))
     for i in range(len(scenario)):
         print(f"Starting setup number {i} : {scenario[i].setup_name} : {scenario[i].model_type}")
         roc_auc_scores, losses, fp_rate, tp_rate, roc = scenario[i].run(config.NUMBER_REPEAT_EXPERIMENT)
         all_roc_scores += roc_auc_scores
         all_setups += [scenario[i].setup_name for j in range(len(roc_auc_scores))]
-        all_model_types += [str(model_type)[12:] for j in range(len(roc_auc_scores))]
+        all_model_types += [str(scenario[i].model_type)[12:] for j in range(len(roc_auc_scores))]
 
-        """
-        axes[i].set_title(f'Loss of Setup: {scenario.setup_name}')
-        losses = convert_to_df(losses)
-        sns.lineplot(data=losses, ax=axes[i])
-        plot_roc_curve(scenario.setup_name, fp_rate, tp_rate, roc, axes_rocs[i])
-        """
+        if plot_roc_and_loss:
 
+            axes_loss[i].set_title(f'Loss of Setup: {scenario[i].setup_name}')
+            losses = convert_to_df(losses)
+            sns.lineplot(data=losses, ax=axes_loss[i])
+            plot_roc_curve(scenario[i].setup_name, fp_rate, tp_rate, roc, axes_rocs[i])
+    if plot_roc_and_loss:
+        fig_losses.savefig(config.RESULT_DIR +'loss_' + str(scenario[0].model_type) + '.png')
+        fig_rocs.savefig(config.RESULT_DIR + 'roc_' + str(scenario[0].model_type) + '.png')
 
-fig_results, axe = plt.subplots(1, 1)
-train_and_plot([first_scen[1], first_scen[2]],config.MODEL_TYPES.TRANSFORMER, None)
-train_and_plot([first_scen[1], first_scen[2]],config.MODEL_TYPES.AUTOENCODER, None)
+fig_results, axe = plt.subplots(1, 1, figsize=(12, 4))
+#train_and_plot(transformer_scenario)
+#train_and_plot(autoencoder_scenario)
+train_and_plot(idnn_1, True)
+
 results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores}
 plot_all_results(results, axe)
+fig_results.savefig(config.RESULT_DIR + 'all_results.png')
 
 
 

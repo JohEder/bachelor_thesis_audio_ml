@@ -8,7 +8,7 @@ ANOMALOUS_CLASSES = ['T', 'M', 'B']
 
 MODEL_TYPES = Enum("MODEL_TYPES", ["TRANSFORMER", "AUTOENCODER", "IDNN"])
 
-NUMBER_REPEAT_EXPERIMENT = 5
+NUMBER_REPEAT_EXPERIMENT = 1
 
 #params for mel spectrogram
 SAMPLE_RATE = 22500
@@ -17,6 +17,7 @@ HOP_LENGTH=1024
 N_MELS=128
 NUMBER_OF_FRAMES = 2
 NUMBER_OF_FRAMES_AE = 4
+NUMBER_OF_FRAMES_IDNN = 5
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.csv"

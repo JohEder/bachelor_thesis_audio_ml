@@ -1,6 +1,8 @@
 import datetime
 import math
+from operator import pos
 import models.autoencoder
+import models.idnn
 from torch import nn
 
 from sklearn.utils import shuffle
@@ -8,7 +10,7 @@ import models.transformer
 from models.transformer import TransformerModel
 from torch.nn.modules import module
 import config
-from config import AUDIO_DIR, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
+from config import AUDIO_DIR, NUMBER_OF_FRAMES_IDNN, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
 from import_idmt_traffic_dataset import *
 import pandas as pd
 from datasets.idmt_traffic import *
@@ -37,6 +39,10 @@ class TrainingSetup():
       auc_roc_scores = []
       for i in range(number_of_runs):
         model_name = self.setup_name
+        roc_auc_best = -1
+        best_model = None
+        training_start = datetime.datetime.now()
+        losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data}")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.model_type == MODEL_TYPES.TRANSFORMER:
@@ -54,10 +60,6 @@ class TrainingSetup():
           print(f"Total Steps: {total_steps}, Warm up steps: {warm_up_steps}, Ratio: {warm_up_steps / total_steps}")
           transformer.to(device)
           transformer.train() #mode
-          roc_auc_best = -1
-          best_model = None
-          training_start = datetime.datetime.now()
-          losses = []
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
             val_anom_scores, val_targets = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
@@ -81,15 +83,12 @@ class TrainingSetup():
           #print(next(iter(train_loader)).shape)
           LEARNING_RATE = 0.001
           EPOCHS = 5
-          autoencoder = models.autoencoder.AutoEncoder(input_dim=512)
+          INPUT_DIM = 512
+          autoencoder = models.autoencoder.AutoEncoder(input_dim=INPUT_DIM)
           optimizer = torch.optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
 
           autoencoder.to(device)
           autoencoder.train() #mode
-          roc_auc_best = -1
-          best_model = None
-          training_start = datetime.datetime.now()
-          losses = []
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.autoencoder.train_epoch(autoencoder, train_loader, optimizer, epoch, device)
             val_anom_scores, val_targets = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
@@ -107,10 +106,34 @@ class TrainingSetup():
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
-          summary = pms.summary(autoencoder, torch.ones(BATCH_SIZE, 512).to(device))
+          summary = pms.summary(autoencoder, torch.ones(BATCH_SIZE, INPUT_DIM).to(device))
 
         elif self.model_type == MODEL_TYPES.IDNN:
-          raise Exception("not implemented")
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.IDNN)
+          input_sample, label  = (next(iter(train_loader)))
+          input_shape = input_sample.shape #[32, 1, 128, 44]
+          print(input_shape)
+          LEARNING_RATE = 0.001
+          EPOCHS = 1
+          idnn = models.idnn.Idnn(input_dim=config.N_MELS * (config.NUMBER_OF_FRAMES_IDNN - 1))
+          optimizer = torch.optim.Adam(idnn.parameters(), lr=LEARNING_RATE)
+          idnn.to(device)
+          idnn.train()
+          for epoch in range(1, EPOCHS + 1):
+            losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
+            val_anom_scores, val_targets = models.idnn.get_anom_scores(idnn, val_loader, device)
+            roc_auc = roc_auc_score(val_targets, val_anom_scores)
+            losses += losses_epoch
+            if len(val_loader) > 50 and roc_auc > roc_auc_best:
+              best_model = copy.deepcopy(idnn)
+              roc_auc_best = roc_auc
+            else: 
+              best_model = copy.deepcopy(idnn)
+              roc_auc_best = roc_auc
+            print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
+          training_finished = datetime.datetime.now()
+          total_training_time = training_finished - training_start
+          summary = pms.summary(idnn, torch.ones(BATCH_SIZE, N_MELS, NUMBER_OF_FRAMES_IDNN).to(device))
         #evaluation
         fp_rate, tp_rate, roc_auc = self.evaluate_model(best_model, test_loader, device)
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
@@ -135,7 +158,10 @@ class TrainingSetup():
         #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
         return fp_rate, tp_rate, roc_auc
       elif self.model_type == MODEL_TYPES.IDNN:
-        raise Exception("Not implemented!")
+        test_anom_scores, test_targets = models.idnn.get_anom_scores(best_model, test_loader, device)
+        fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
+        roc_auc = roc_auc_score(test_targets, test_anom_scores)
+        return fp_rate, tp_rate, roc_auc
 
 
     def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, model_type):
