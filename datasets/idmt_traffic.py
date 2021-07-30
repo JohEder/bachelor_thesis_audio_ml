@@ -39,7 +39,7 @@ class IdmtTrafficDataSet(Dataset):
 
     def __getitem__(self, index):
         audio_sample_path = self._get_audio_sample_path(index)
-        label = self._get_audio_sample_label(index) if self._get_audio_sample_label(index) != None else 'None'
+        item_class = self._get_audio_sample_label(index) if self._get_audio_sample_label(index) != None else 'None'
         #print(f"Label: {label}")
         if self.on_the_fly:
             signal, sr = torchaudio.load(audio_sample_path)
@@ -52,8 +52,8 @@ class IdmtTrafficDataSet(Dataset):
             raise Exception("Not implemented yet!")
         #label = self.normal_classes.index(label)
         #print(f"normal classes {self.normal_classes}")
-        label = 0 if label in self.normal_classes else 1
-        return signal, label
+        label = 0 if item_class in self.normal_classes else 1
+        return signal, label, item_class
 
     def _resample(self, signal, sr):
         if sr != self.target_sample_rate:

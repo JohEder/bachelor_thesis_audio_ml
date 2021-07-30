@@ -1,5 +1,6 @@
 from posixpath import join
 import matplotlib
+from seaborn.distributions import kdeplot
 from seaborn.utils import ci
 import torch
 import matplotlib.pyplot as plt
@@ -64,6 +65,16 @@ def plot_roc_curve(title, fp_rate, tp_rate, roc_auc, axe):
   axe.legend(loc="lower right")
   #axe.savefig(config.RESULT_DIR + title + '.jpg')
   #plt.show()
+
+def plot_error_distribution(axe, scores_classes, title):
+  test_anom_scores, test_targets = scores_classes
+  recons_errros = {'Class' : test_targets, 'Error' : test_anom_scores}
+  df_recons_errors = pd.DataFrame(recons_errros, columns=recons_errros.keys())
+  print(df_recons_errors.describe())
+  print(df_recons_errors.head())
+  print(df_recons_errors.tail())
+  axe.set_title(title)
+  sns.histplot(data=df_recons_errors, x='Error', hue='Class', kde=True, ax=axe)
 
 def plot_and_save_loss_curve(title, losses):
   figure_2 = plt.figure(2)

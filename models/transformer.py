@@ -1,4 +1,5 @@
 import datetime
+from matplotlib.pyplot import cla
 import torch
 from torch import nn
 import random
@@ -122,7 +123,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None):
   print(f"Starting Epoch {epoch}")
   model.train()
   epoch_loss = []
-  for batch_index, (data_batch, _) in enumerate(train_loader):
+  for batch_index, (data_batch, _, _) in enumerate(train_loader):
     #print(data_batch.shape)
     data_batch = patch_batch(data_batch, NUMBER_OF_FRAMES)
     data_batch = data_batch.to(device)
@@ -147,6 +148,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None):
   #currently the batch size for evaluation needs to be 1
   total_anom_scores = []
   total_targets = []
+  original_class_labels = []
   model.to(device)
   model.eval()
   with torch.no_grad():
@@ -155,7 +157,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None):
         break
       if (batch_number % 30 == 0):
         print(f"Progress: {batch_number}/{len(data_loader)}")
-      inputs, target = data
+      inputs, target, class_label = data
       inputs = inputs.to(device)
       #print(inputs.shape)
       inputs = patch_batch(inputs, NUMBER_OF_FRAMES)
@@ -173,4 +175,5 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None):
       #print(loss_total_current_spec)
       total_anom_scores.append(loss_total_current_spec) #coverting to numpy for processing with scikit
       total_targets.append(target)
-    return total_anom_scores, total_targets
+      original_class_labels.append(class_label[0])
+    return total_anom_scores, total_targets, original_class_labels

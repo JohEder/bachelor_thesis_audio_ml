@@ -98,6 +98,7 @@ def mse_loss(input, output):
 def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
     anom_scores = []
     targets = []
+    orig_class_labels = []
     model.to(device)
     model.eval()
     with torch.no_grad():
@@ -106,7 +107,7 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
                 break
             if (batch_number % 50 == 0):
                 print(f"Progress: {batch_number}/{len(val_loader)}")
-            inputs, target = data
+            inputs, target, class_label = data
             inputs = inputs.to(device)
             #print(inputs.shape)
             inputs = patch_batch_framewise(inputs)
@@ -126,7 +127,8 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
             #print(loss_total_current_spec)
             anom_scores.append(loss_total_current_spec)
             targets.append(target)
-    return anom_scores, targets
+            orig_class_labels.append(class_label[0])
+    return anom_scores, targets, orig_class_labels
 
 def patch_batch_framewise(data_batch):
     #input of shape (batch_size, channels, mel_filters, frames)

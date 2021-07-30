@@ -1,3 +1,4 @@
+from matplotlib.pyplot import cla
 import torch
 from torch import nn
 from config import NUMBER_OF_FRAMES_AE
@@ -62,9 +63,9 @@ class AutoEncoder(nn.Module):
     output = self.decoder(z)
     return output
 
-def patch_batch_ae(input_batch):
+def patch_batch_ae(input_batch, stride=NUMBER_OF_FRAMES_AE):
   #input of shape (batch_size, channels, mel_filters, frames)
-  unfold = nn.Unfold(kernel_size=(input_batch.shape[2], NUMBER_OF_FRAMES_AE), stride=NUMBER_OF_FRAMES_AE) #patching the spectogram
+  unfold = nn.Unfold(kernel_size=(input_batch.shape[2], NUMBER_OF_FRAMES_AE), stride=stride) #patching the spectogram
   unfolded_batch = unfold(input_batch) #(batch_size, features, number_of_patches)
   unfolded_batch = unfolded_batch.transpose(1, 2) #(batch_size, number_of_patches, features)
   return unfolded_batch
@@ -73,7 +74,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
     print(f"Starting Epoch {epoch}")
     model.train()
     epoch_loss = []
-    for batch_index, (data_batch, _) in enumerate(train_loader):
+    for batch_index, (data_batch, _, _) in enumerate(train_loader):
         data_batch = patch_batch_ae(data_batch)
         #print(data_batch.shape)
         data_batch = data_batch[:,1,:]
@@ -81,6 +82,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
         data_batch = data_batch.to(device)
         optimizer.zero_grad()
         output = model(data_batch)
+        assert output.shape == data_batch.shape
         # Calculate loss
         loss = mse_loss(output, data_batch)
         loss.backward()                 
@@ -93,6 +95,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
 def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
   anom_scores = []
   targets = []
+  class_labels = []
   model.to(device)
   model.eval()
   with torch.no_grad():
@@ -101,17 +104,17 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
             break
         if (batch_number % 50 == 0):
             print(f"Progress: {batch_number}/{len(val_loader)}")
-        inputs, target = data
+        inputs, target, class_label = data
         inputs = inputs.to(device)
         #print(inputs.shape)
-        inputs = patch_batch_ae(inputs)
+        inputs = patch_batch_ae(inputs, stride=1)
         #print(inputs.shape)
         loss_total_current_spec = 0
         for i in range(inputs.shape[1]): #iterate through patches
           input_frames = inputs[:, i, :]
           #print(input_frames.shape)
           output= model(input_frames) #ith frame gets propagated
-          #print(output)
+          #print(output.shape)
           #print(index)
           assert input_frames.shape == output.shape
           loss = mse_loss(input_frames, output)
@@ -121,7 +124,8 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
         #print(loss_total_current_spec)
         anom_scores.append(loss_total_current_spec)
         targets.append(target)
-    return anom_scores, targets
+        class_labels.append(class_label[0])
+    return anom_scores, targets, class_labels
 
 def mse_loss(input, output):
     loss = nn.MSELoss()

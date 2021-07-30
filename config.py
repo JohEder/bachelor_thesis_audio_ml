@@ -16,8 +16,12 @@ N_FFT=2048 #is also window size
 HOP_LENGTH=1024
 N_MELS=128
 NUMBER_OF_FRAMES = 2
-NUMBER_OF_FRAMES_AE = 4
+NUMBER_OF_FRAMES_AE = 5
 NUMBER_OF_FRAMES_IDNN = 5
+
+EPOCHS_TF = 10
+EPOCHS_AE = 1
+EPOCHS_IDNN = 5
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.csv"
