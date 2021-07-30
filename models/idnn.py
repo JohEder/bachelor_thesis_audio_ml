@@ -8,8 +8,6 @@ from torch.utils import data
 import config
 
 
-random.seed(config.RANDOM_SEED)
-
 class Idnn(nn.Module):
     def __init__(self, input_dim):
         super(Idnn, self).__init__()

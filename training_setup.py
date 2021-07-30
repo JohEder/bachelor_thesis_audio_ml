@@ -16,12 +16,13 @@ import pandas as pd
 from datasets.idmt_traffic import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, roc_curve
-import logging
-from utils import load_model, plot_and_save_loss_curve, save_model, plot_roc_curve, save_hyperparams
+from utils import save_hyperparams
 from transformers.optimization import get_cosine_schedule_with_warmup, get_linear_schedule_with_warmup
 from transformers import AdamW
 import pytorch_model_summary as pms
 import copy
+import random
+import numpy as np
 
 
 class TrainingSetup():
@@ -38,6 +39,11 @@ class TrainingSetup():
     def run(self, number_of_runs=1):
       auc_roc_scores = []
       for i in range(number_of_runs):
+        current_seed = config.RANDOM_SEEDS[i]
+        random.seed(current_seed)
+        torch.manual_seed(current_seed)
+        np.random.seed(current_seed)
+
         model_name = self.setup_name
         roc_auc_best = -1
         best_model = None
@@ -46,7 +52,7 @@ class TrainingSetup():
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data}")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.model_type == MODEL_TYPES.TRANSFORMER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.TRANSFORMER)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.TRANSFORMER, current_seed)
           #training
           transformer = TransformerModel(EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
           LEARNING_RATE = 0.00001
@@ -79,7 +85,7 @@ class TrainingSetup():
           total_training_time = training_finished - training_start
           summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 22, 256).to(device))
         elif self.model_type == MODEL_TYPES.AUTOENCODER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.AUTOENCODER)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.AUTOENCODER, current_seed)
           #print(next(iter(train_loader)).shape)
           LEARNING_RATE = 0.001
           EPOCHS = 5
@@ -109,7 +115,7 @@ class TrainingSetup():
           summary = pms.summary(autoencoder, torch.ones(BATCH_SIZE, INPUT_DIM).to(device))
 
         elif self.model_type == MODEL_TYPES.IDNN:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.IDNN)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( all_annotations_txt, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.IDNN, current_seed)
           input_sample, label  = (next(iter(train_loader)))
           input_shape = input_sample.shape #[32, 1, 128, 44]
           print(input_shape)
@@ -164,7 +170,7 @@ class TrainingSetup():
         return fp_rate, tp_rate, roc_auc
 
 
-    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, model_type):
+    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, model_type, current_seed):
         if len((set(self.normal_data) & set(self.anomalous_data))) > 0:
           raise Exception("Intersection between normal and anomalous classes should be empty!")
 
@@ -176,8 +182,8 @@ class TrainingSetup():
         anomalous_data = all_data[all_data.vehicle.isin(self.anomalous_data)]
         #anomalous_data = self.balance_data_by_vehicle(anomalous_data)
 
-        train_data, test_data_normal = train_test_split(normal_data, test_size=0.1, shuffle=True, random_state=config.RANDOM_SEED, stratify=normal_data.vehicle)
-        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=config.RANDOM_SEED, stratify=train_data.vehicle)
+        train_data, test_data_normal = train_test_split(normal_data, test_size=0.15, shuffle=True, random_state=current_seed, stratify=normal_data.vehicle)
+        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=current_seed, stratify=train_data.vehicle)
         train_data = self.adjust_sample_number_to_batch_size(train_data, batch_size)
         #print(f"training with {len(train_data)} (normal) samples")
 
@@ -191,8 +197,13 @@ class TrainingSetup():
         #sample same number of anomalous data to test
         #number_anomlous = number_of_normal_test_sampels if number_of_normal_test_sampels < len(anomalous_data) else len(anomalous_data)
 
-        anomalous_test_data = anomalous_data.sample(len(test_data_normal), replace=True, random_state=config.RANDOM_SEED)
-        anomalous_val_data = anomalous_data.sample(len(val_data_normal), replace=True, random_state=config.RANDOM_SEED)
+        number_anom_test = len(anomalous_data) if len(anomalous_data) < len(test_data_normal) else len(test_data_normal)
+        print(f"Number anom Test {number_anom_test}")
+        number_anom_val = len(anomalous_data) if len(anomalous_data) < len(val_data_normal) else len(val_data_normal)
+        print(f"Number anom Val {number_anom_val}")
+        anomalous_test_data = anomalous_data.sample(number_anom_test, random_state=current_seed)
+        #anomalous_data = anomalous_data.drop(anomalous_test_data.index)
+        anomalous_val_data = anomalous_data.sample(number_anom_val, random_state=current_seed)
         #anomalous_test_data = anomalous_test_data[len(val_data_normal) + 1:] #take first samples from anomalous test data for validation druing trianing
         #print(f"testing with {len(anomalous_data)} anomalous samples")
         #print(f"Validating with {len(anomalous_val_data)} anomalous samples")

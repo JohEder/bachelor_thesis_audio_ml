@@ -15,26 +15,12 @@ logging.basicConfig(level=logging.INFO)
 classes = config.CLASSES
 experiment_name = "standart"
 start_time = datetime.datetime.now()
-random.seed(config.RANDOM_SEED)
 
 
-first_scen, second_scen = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
-transformer_scenario = first_scen + second_scen
-ae_1, ae_2 = generateTwoScenarios(classes, config.MODEL_TYPES.AUTOENCODER)
-autoencoder_scenario = ae_1 + ae_2
+transformer_scenario, _ = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
+ae_1, _ = generateTwoScenarios(classes, config.MODEL_TYPES.AUTOENCODER)
 idnn_1, _ = generateTwoScenarios(classes, config.MODEL_TYPES.IDNN)
 
-"""
-all_roc_auc_scores_1 = {}
-
-fig_all_rocs, axes_all_rocs = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-
-fig_losses, axes_losses = plt.subplots(1, len(first_scen), figsize=(20, 5), sharey=True)
-fig_losses.suptitle('Scenario 1: Loss Curves')
-
-fig_rocs, axes_rocs = plt.subplots(1, len(first_scen), figsize=(20, 5), sharex=True, sharey=True)
-fig_rocs.suptitle('Scenario 1: ROC Curves')
-"""
 all_roc_scores = []
 all_model_types = []
 all_setups = []

@@ -28,7 +28,7 @@ RESULT_DIR = '/home/johannes/bachelor_thesis_code/code/results/'
 BATCH_SIZE = 32
 BATCH_SIZE_VAL = 1
 
-RANDOM_SEED = 42
+RANDOM_SEEDS = [42, 9, 17, 4, 7, 32, 29, 20, 34, 12, 35, 89, 36, 67, 89,68]
 
 #params for transformer model architecture
 EMBEDDING_SIZE = 128
