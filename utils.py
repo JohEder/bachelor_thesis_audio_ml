@@ -74,7 +74,7 @@ def plot_error_distribution(axe, scores_classes, title):
   print(df_recons_errors.head())
   print(df_recons_errors.tail())
   axe.set_title(title)
-  sns.histplot(data=df_recons_errors, x='Error', hue='Class', kde=True, ax=axe)
+  sns.kdeplot(data=df_recons_errors, x='Error', hue='Class', ax=axe)
 
 def plot_and_save_loss_curve(title, losses):
   figure_2 = plt.figure(2)
