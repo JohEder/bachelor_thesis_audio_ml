@@ -71,7 +71,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
     print(f"Starting Epoch {epoch}")
     model.train()
     epoch_loss = []
-    for batch_index, (data_batch, _) in enumerate(train_loader):
+    for batch_index, (data_batch, _, _) in enumerate(train_loader):
         first_frame = random.randint(0, data_batch.shape[3] - (config.NUMBER_OF_FRAMES_IDNN + 1))
         first_frame = first_frame if first_frame > 0 else 0
         last_frame = first_frame + config.NUMBER_OF_FRAMES_IDNN

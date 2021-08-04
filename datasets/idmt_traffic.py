@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import os
 import pandas as pd
+from torchvision.transforms.transforms import Grayscale
 import config
 from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT, N_MELS
 
@@ -17,16 +18,13 @@ class IdmtTrafficDataSet(Dataset):
         sample_rate=SAMPLE_RATE,
         n_fft=N_FFT, # Frame Size
         hop_length=HOP_LENGTH, #here half the frame size
-        n_mels=N_MELS
+        n_mels=N_MELS,
+        normalized=True #magnitude scaling
         )
         self.image_transformation = transforms.Compose([
         transforms.ToPILImage(mode='L'),
-        transforms.ToTensor(),
-        ])
-        self.auto_encoder_transformation = transforms.Compose([
-        transforms.ToPILImage(mode='L'),
-        transforms.RandomCrop(size=[N_MELS, config.NUMBER_OF_FRAMES_AE]), #only train on random slice of the spectogram
-        transforms.ToTensor(),
+        #transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(), #converting to values between 0 and 1
         ])
         self.target_sample_rate = target_sample_rate
         #self.classes = ['None','C','T', 'M', 'B']
@@ -43,16 +41,18 @@ class IdmtTrafficDataSet(Dataset):
         #print(f"Label: {label}")
         if self.on_the_fly:
             signal, sr = torchaudio.load(audio_sample_path)
+            signal  = self._mix_down(signal) #stereo to mono
             signal = self._resample(signal, sr) #adjust sample rates
             # signal -> (num_channels, samples) i.e. (2, 16000)
-            signal  = self._mix_down(signal) #stereo to mono
             signal = self.audio_transformation(signal) #(1, 16000) -> torch.Size([1, 64, 63])
-            signal = self.image_transformation(signal)#self.auto_encoder_transformation(signal) if self.model_type == MODEL_TYPES.AUTOENCODER else self.image_transformation(signal)
+            #print(signal)
+            signal = self.image_transformation(signal)
         else:
             raise Exception("Not implemented yet!")
         #label = self.normal_classes.index(label)
         #print(f"normal classes {self.normal_classes}")
         label = 0 if item_class in self.normal_classes else 1
+        #print(signal)
         return signal, label, item_class
 
     def _resample(self, signal, sr):

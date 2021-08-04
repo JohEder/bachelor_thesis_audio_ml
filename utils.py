@@ -12,7 +12,7 @@ import training_setup
 from torch.utils import data
 import config
 
-def generateTwoScenarios(classes, model_type):
+def generateTwoScenarios(classes):
     training_setups_first_scenario = []
     for category in classes:
         if category == 'None':
@@ -20,7 +20,7 @@ def generateTwoScenarios(classes, model_type):
 
         normal_classes = ['None', category]
         anomalous_classes = list(filter(lambda x: x not in normal_classes, classes))
-        training_setups_first_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes, model_type))
+        training_setups_first_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes,))
 
 
 
@@ -30,7 +30,7 @@ def generateTwoScenarios(classes, model_type):
 
         anomalous_classes = [category]
         normal_classes = list(filter(lambda x: x not in anomalous_classes, classes))
-        training_setups_second_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes, model_type))
+        training_setups_second_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes))
 
     return training_setups_first_scenario, training_setups_second_scenario
 
@@ -103,7 +103,7 @@ def convert_to_df(losses):
 
 def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps=""):
   if model_type == config.MODEL_TYPES.TRANSFORMER:
-    with open(config.RESULT_DIR + "hyper_params" + model_name + ".txt", 'w') as f:
+    with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
       f.write(f"Model Name: {model_name}\n" +
           f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}, Optimizer: {optimizer}, Weight Decay: {weight_decay} Total Steps: {total_steps}, Warm up Steps: {warm_up_steps}\n" +
           f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {config.N_MELS}\n" + 

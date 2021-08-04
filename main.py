@@ -13,34 +13,48 @@ logging.basicConfig(level=logging.INFO)
 
 
 classes = config.CLASSES
-experiment_name = "standart"
 start_time = datetime.datetime.now()
 
 
-transformer_scenario, _ = generateTwoScenarios(classes, config.MODEL_TYPES.TRANSFORMER)
-ae_1, _ = generateTwoScenarios(classes, config.MODEL_TYPES.AUTOENCODER)
-idnn_1, _ = generateTwoScenarios(classes, config.MODEL_TYPES.IDNN)
+transformer_scenario, _ = generateTwoScenarios(classes)
+
+none_scenario_tf = TrainingSetup(['None'], ['C', 'T', 'B', 'M'])
+
+c_scenario_tf = TrainingSetup(['C'], ['B', 'M'])
+c_scenario_tf_with_none = TrainingSetup(['C'], ['B', 'M', 'None'])
+#c_scenario_tf_with_t = TrainingSetup(['C'], ['T', 'B', 'M'], config.MODEL_TYPES.TRANSFORMER)
+c_t_scenario_tf = TrainingSetup(['C', 'T'], ['B', 'M'])
+c_t_scenario_tf_with_None = TrainingSetup(['C', 'T'], ['None', 'B', 'M'])
+m_scenario_tf = TrainingSetup(['M'], ['C', 'T'])
+
+c_scenario_idnn = TrainingSetup(['C'], ['T', 'B', 'M'])
+c_scenario_ae = TrainingSetup(['C'], ['B', 'M'])
+
+t_scenario_tf = TrainingSetup(['T'], ['B', 'M'])
+t_scenario_idnn = TrainingSetup(['T'], ['C', 'B', 'M'])
+t_scenario_ae = TrainingSetup(['T'], ['B', 'M'])
 
 all_roc_scores = []
 all_model_types = []
 all_setups = []
 
-def train_and_plot(scenario, plot_roc_and_loss=False):
+def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
     global all_roc_scores
     global all_model_types
     global all_setups
     if plot_roc_and_loss:
-        fig_losses, axes_loss = plt.subplots(1, len(scenario), figsize=(12, 4))
-        fig_rocs, axes_rocs = plt.subplots(1, len(scenario), figsize=(12, 4))
-        fig_error_dists, axes_errors = plt.subplots(1, len(scenario), figsize=(12, 4))
+        len_scen = len(scenario) if len(scenario) > 1 else 2 #just for indexing, that running only one scenario doesnt break the graphs
+        fig_losses, axes_loss = plt.subplots(1, len_scen, figsize=(5*len_scen,5))
+        fig_rocs, axes_rocs = plt.subplots(1, len_scen, figsize=(5*len_scen, 5))
+        fig_error_dists, axes_errors = plt.subplots(1, len_scen, figsize=(5*len_scen, 5))
     for i in range(len(scenario)):
-        print(f"Starting setup number {i} : {scenario[i].setup_name} : {scenario[i].model_type}")
-        roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes = scenario[i].run(config.NUMBER_REPEAT_EXPERIMENT)
+        print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type}")
+        roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT)
         scores, classes = scores_classes
         print(f"Classes: {classes}")
         all_roc_scores += roc_auc_scores
         all_setups += [scenario[i].setup_name for j in range(len(roc_auc_scores))]
-        all_model_types += [str(scenario[i].model_type)[12:] for j in range(len(roc_auc_scores))]
+        all_model_types += [str(model_type)[12:] for j in range(len(roc_auc_scores))]
 
         if plot_roc_and_loss:
             plot_error_distribution(axes_errors[i], scores_classes, scenario[i].setup_name)
@@ -49,13 +63,17 @@ def train_and_plot(scenario, plot_roc_and_loss=False):
             sns.lineplot(data=losses, ax=axes_loss[i])
             plot_roc_curve(scenario[i].setup_name, fp_rate, tp_rate, roc, axes_rocs[i])
     if plot_roc_and_loss:
-        fig_error_dists.savefig(config.RESULT_DIR + 'error_dist_' + str(scenario[0].model_type) + '.png')
-        fig_losses.savefig(config.RESULT_DIR +'loss_' + str(scenario[0].model_type) + '.png')
-        fig_rocs.savefig(config.RESULT_DIR + 'roc_' + str(scenario[0].model_type) + '.png')
+        fig_error_dists.savefig(config.RESULT_DIR + 'error_dist_' + str(model_type) + '.png')
+        fig_losses.savefig(config.RESULT_DIR +'loss_' + str(model_type) + '.png')
+        fig_rocs.savefig(config.RESULT_DIR + 'roc_' + str(model_type) + '.png')
 
 fig_results, axe = plt.subplots(1, 1, figsize=(12, 4))
 #train_and_plot(ae_1, True)
-train_and_plot([transformer_scenario[0], transformer_scenario[1]], True)
+train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.TRANSFORMER, True)
+train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.AUTOENCODER, True)
+train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.IDNN, True)
+#train_and_plot([c_t_scenario_tf,c_scenario_tf_with_none, c_t_scenario_tf_with_None], True)
+#train_and_plot([c_scenario_idnn, t_scenario_idnn], True)
 
 results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores}
 plot_all_results(results, axe)
