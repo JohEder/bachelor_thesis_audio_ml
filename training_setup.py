@@ -1,6 +1,8 @@
 import datetime
 import math
 from operator import pos
+
+from scipy.sparse.construct import rand
 import models.autoencoder
 import models.idnn
 from torch import nn
@@ -201,6 +203,7 @@ class TrainingSetup():
 
         #sample same number of anomalous data to test
         #number_anomlous = number_of_normal_test_sampels if number_of_normal_test_sampels < len(anomalous_data) else len(anomalous_data)
+        #test_data_normal = self.balance_data_by_vehicle(test_data_normal)
         
         min_class = min(anomalous_data[current_row].value_counts())
         anomalous_test_data = anomalous_data.groupby(current_row).sample(min_class, random_state=current_seed)
@@ -209,6 +212,10 @@ class TrainingSetup():
         #anomalous_test_data = anomalous_test_data[len(val_data_normal) + 1:] #take first samples from anomalous test data for validation druing trianing
         #print(f"testing with {len(anomalous_data)} anomalous samples")
         #print(f"Validating with {len(anomalous_val_data)} anomalous samples")
+        if len(test_data_normal) > len(anomalous_test_data):
+          test_data_normal = test_data_normal.groupby(current_row).sample(len(anomalous_test_data) // len(self.normal_data),random_state=current_seed )
+        else:
+          anomalous_test_data = anomalous_test_data.groupby(current_row).sample(len(test_data_normal) // len(self.anomalous_data), random_state=current_seed)
 
         frames = [anomalous_test_data, test_data_normal]
         concatenated_test_data = pd.concat(frames)
@@ -220,8 +227,8 @@ class TrainingSetup():
         concatenated_val_data.reset_index(drop=True, inplace=True)
         concatenated_val_data = self.adjust_sample_number_to_batch_size(concatenated_val_data, batch_size_test)
 
-        concatenated_test_data = self.balance_data_by_vehicle(concatenated_test_data)
-        concatenated_val_data = self.balance_data_by_vehicle(concatenated_val_data)
+        #concatenated_test_data = self.balance_data_by_vehicle(concatenated_test_data)
+        #concatenated_val_data = self.balance_data_by_vehicle(concatenated_val_data)
 
         print(f"Train Data: \n{train_data['vehicle'].value_counts()} \n\nDistribution in Train data: \n{train_data['vehicle'].value_counts(normalize=True)}")
         print(f"Test Data: \n{concatenated_test_data['vehicle'].value_counts()}\n\nDistribution in Test data: \n{concatenated_test_data['vehicle'].value_counts(normalize=True)}")
