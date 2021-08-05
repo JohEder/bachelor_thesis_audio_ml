@@ -10,10 +10,9 @@ from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT, N_MEL
 
 class IdmtTrafficDataSet(Dataset):
 
-    def __init__(self, annotations_file, target_sample_rate, normal_classes, model_type, on_the_fly=True):
+    def __init__(self, annotations_file, target_sample_rate, normal_classes, anomalous_classes, row, on_the_fly=True):
         self.annotations =  annotations_file if isinstance(annotations_file, pd.DataFrame) else pd.read_csv(annotations_file)
         self.audio_dir = AUDIO_DIR #new audio dir with specrtograms
-        self.model_type = model_type
         self.audio_transformation = torchaudio.transforms.MelSpectrogram(
         sample_rate=SAMPLE_RATE,
         n_fft=N_FFT, # Frame Size
@@ -29,6 +28,8 @@ class IdmtTrafficDataSet(Dataset):
         self.target_sample_rate = target_sample_rate
         #self.classes = ['None','C','T', 'M', 'B']
         self.normal_classes = normal_classes
+        self.anomalous_classes = anomalous_classes
+        self.row = row
         self.on_the_fly = on_the_fly
 
 
@@ -37,7 +38,7 @@ class IdmtTrafficDataSet(Dataset):
 
     def __getitem__(self, index):
         audio_sample_path = self._get_audio_sample_path(index)
-        item_class = self._get_audio_sample_label(index) if self._get_audio_sample_label(index) != None else 'None'
+        item_class = self._get_audio_sample_label(index, self.row) #if self._get_audio_sample_label(index) != None else 'None'
         #print(f"Label: {label}")
         if self.on_the_fly:
             signal, sr = torchaudio.load(audio_sample_path)
@@ -51,8 +52,12 @@ class IdmtTrafficDataSet(Dataset):
             raise Exception("Not implemented yet!")
         #label = self.normal_classes.index(label)
         #print(f"normal classes {self.normal_classes}")
-        label = 0 if item_class in self.normal_classes else 1
-        #print(signal)
+        if item_class in self.normal_classes:
+            label = 0
+        elif item_class in self.anomalous_classes:
+            label = 1
+        else: 
+            raise Exception("Class Label not in normal and anomalous classes! Wrong Labelling?")
         return signal, label, item_class
 
     def _resample(self, signal, sr):
@@ -71,5 +76,5 @@ class IdmtTrafficDataSet(Dataset):
         path = os.path.join(self.audio_dir, self.annotations.iloc[index, 0])
         return path + '.wav'
 
-    def _get_audio_sample_label(self, index):
-        return self.annotations.iloc[index, 8]
+    def _get_audio_sample_label(self, index, row):
+        return self.annotations.iloc[index, row]

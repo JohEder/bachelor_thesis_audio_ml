@@ -34,6 +34,12 @@ t_scenario_tf = TrainingSetup(['T'], ['B', 'M'])
 t_scenario_idnn = TrainingSetup(['T'], ['C', 'B', 'M'])
 t_scenario_ae = TrainingSetup(['T'], ['B', 'M'])
 
+
+velocity_setup_30 = TrainingSetup(['50'], ['30'], config.SETUP_TYPES.VELOCITY)
+velocity_setup_70 = TrainingSetup(['50'], ['70'], config.SETUP_TYPES.VELOCITY)
+velocity_setup_both = TrainingSetup(['50'], ['30', '70'], config.SETUP_TYPES.VELOCITY)
+road_conditions_setups = TrainingSetup(['D'], ['W'], config.SETUP_TYPES.WEATHER)
+
 all_roc_scores = []
 all_model_types = []
 all_setups = []
@@ -44,9 +50,11 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
     global all_setups
     if plot_roc_and_loss:
         len_scen = len(scenario) if len(scenario) > 1 else 2 #just for indexing, that running only one scenario doesnt break the graphs
-        fig_losses, axes_loss = plt.subplots(1, len_scen, figsize=(5*len_scen,5))
-        fig_rocs, axes_rocs = plt.subplots(1, len_scen, figsize=(5*len_scen, 5))
-        fig_error_dists, axes_errors = plt.subplots(1, len_scen, figsize=(5*len_scen, 5))
+        if len_scen > 5:
+            raise Exception("Too many scenarios at the same time. Graphs will be too large.")
+        fig_losses, axes_loss = plt.subplots(1, len_scen, figsize=(6* len_scen, 4))
+        fig_rocs, axes_rocs = plt.subplots(1, len_scen, figsize=(6 * len_scen, 4))
+        fig_error_dists, axes_errors = plt.subplots(1, len_scen, figsize=(6 * len_scen, 4))
     for i in range(len(scenario)):
         print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type}")
         roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT)
@@ -63,15 +71,17 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
             sns.lineplot(data=losses, ax=axes_loss[i])
             plot_roc_curve(scenario[i].setup_name, fp_rate, tp_rate, roc, axes_rocs[i])
     if plot_roc_and_loss:
-        fig_error_dists.savefig(config.RESULT_DIR + 'error_dist_' + str(model_type) + '.png')
-        fig_losses.savefig(config.RESULT_DIR +'loss_' + str(model_type) + '.png')
-        fig_rocs.savefig(config.RESULT_DIR + 'roc_' + str(model_type) + '.png')
+        fig_error_dists.savefig(config.RESULT_DIR + 'error_dist_' + str(model_type) +scenario[i].setup_name + '.png')
+        fig_losses.savefig(config.RESULT_DIR +'loss_' + str(model_type) +scenario[i].setup_name+ '.png')
+        fig_rocs.savefig(config.RESULT_DIR + 'roc_' + str(model_type)+ scenario[i].setup_name + '.png')
 
 fig_results, axe = plt.subplots(1, 1, figsize=(12, 4))
 #train_and_plot(ae_1, True)
-train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.TRANSFORMER, True)
-train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.AUTOENCODER, True)
-train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.IDNN, True)
+train_and_plot([velocity_setup_30], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
+#train_and_plot([velocity_setup_30, velocity_setup_70, velocity_setup_both], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
+#train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.TRANSFORMER, True)
+#train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.AUTOENCODER, True)
+#train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.IDNN, True)
 #train_and_plot([c_t_scenario_tf,c_scenario_tf_with_none, c_t_scenario_tf_with_None], True)
 #train_and_plot([c_scenario_idnn, t_scenario_idnn], True)
 

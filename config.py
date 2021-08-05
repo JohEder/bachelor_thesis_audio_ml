@@ -1,14 +1,12 @@
 from enum import Enum
-import torchaudio
-from torchvision import datasets, transforms
 
 CLASSES = ['None','C','T', 'M', 'B'] #Background Noise, Car, Truck, Motorcycle, Bus
-NORMAL_CLASSES = ['None', 'C']
-ANOMALOUS_CLASSES = ['T', 'M', 'B']
+
 
 MODEL_TYPES = Enum("MODEL_TYPES", ["TRANSFORMER", "AUTOENCODER", "IDNN"])
+SETUP_TYPES = Enum("SETUP_TYPES", ['VEHICLES', 'WEATHER', 'VELOCITY'])
 
-NUMBER_REPEAT_EXPERIMENT = 10
+NUMBER_REPEAT_EXPERIMENT = 3
 
 #params for mel spectrogram
 SAMPLE_RATE = 22500
@@ -21,9 +19,9 @@ NUMBER_OF_FRAMES_IDNN = 5
 
 
 Total_steps = 1000
-EPOCHS_TF = 250
-EPOCHS_AE = 250
-EPOCHS_IDNN = 250
+EPOCHS_TF = 50
+EPOCHS_AE = 10
+EPOCHS_IDNN = 10
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.txt"
@@ -44,4 +42,6 @@ DROPOUT = 0.0 #is dropout needed for AD? used in most Transformer papers
 DIM_FEED_FORWARD = 256
 input_dim = 256
 
-model_name = 'transformer_07_adam_d_1e-5_lr_1e-5'
+ROW_VEHICLES = 8
+ROW_CONDITIONS = 7
+ROW_VELOCIIES = 4

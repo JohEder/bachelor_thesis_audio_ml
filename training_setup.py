@@ -28,12 +28,12 @@ import numpy as np
 
 
 class TrainingSetup():
-    def __init__(self, normal_data, anomalous_data):
+    def __init__(self, normal_data, anomalous_data, setup_type=config.SETUP_TYPES.VEHICLES):
         self.normal_data = normal_data
         self.anomalous_data = anomalous_data
-        self.setup_name = '_'.join(normal_data)
+        self.setup_name = '_'.join(normal_data) +'_anom_'+ '_'.join(anomalous_data)
         self.annotations = config.all_annotations_txt
-        #get train, val, test data set with normal data
+        self.setup_type = setup_type
 
     def __str__(self):
         return f'Normal classes: {self.normal_data} Anomalous:{self.anomalous_data}'
@@ -51,10 +51,10 @@ class TrainingSetup():
         best_model = None
         training_start = datetime.datetime.now()
         losses = []
-        print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data}")
+        print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.TRANSFORMER, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
           #training
           transformer = TransformerModel(EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
           LEARNING_RATE = 0.00001
@@ -70,7 +70,7 @@ class TrainingSetup():
           transformer.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
-            val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
+            val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device, number_of_batches_eval=100) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and False:
@@ -87,7 +87,7 @@ class TrainingSetup():
           total_training_time = training_finished - training_start
           summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 22, 256).to(device))
         elif model_type == MODEL_TYPES.AUTOENCODER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.AUTOENCODER, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
           #print(next(iter(train_loader)).shape)
           LEARNING_RATE = 0.001
           EPOCHS = config.EPOCHS_AE
@@ -101,7 +101,7 @@ class TrainingSetup():
           autoencoder.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.autoencoder.train_epoch(autoencoder, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
+            val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device, number_of_batches_eval=100) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and False:
@@ -119,7 +119,7 @@ class TrainingSetup():
           summary = pms.summary(autoencoder, torch.ones(BATCH_SIZE, INPUT_DIM).to(device))
 
         elif model_type == MODEL_TYPES.IDNN:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, MODEL_TYPES.IDNN, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
           input_sample, label, _  = (next(iter(train_loader)))
           input_shape = input_sample.shape #[32, 1, 128, 44]
           #print(input_shape)
@@ -133,7 +133,7 @@ class TrainingSetup():
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device)
+            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device, number_of_batches_eval=100)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best and False: # remove later, just a test!
@@ -176,7 +176,7 @@ class TrainingSetup():
         return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels)
 
 
-    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, model_type, current_seed, current_row='vehicle'):
+    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, current_seed):
         if len((set(self.normal_data) & set(self.anomalous_data))) > 0:
           raise Exception("Intersection between normal and anomalous classes should be empty!")
 
@@ -184,13 +184,26 @@ class TrainingSetup():
         high_quality = all_data[all_data.microphone == 'SE']
         print(f"High quality total data: {len(high_quality)}")
 
-        normal_data = high_quality[high_quality.vehicle.isin(self.normal_data)]
-        #normal_data = self.balance_data_by_vehicle(normal_data)
 
-        anomalous_data = high_quality[high_quality.vehicle.isin(self.anomalous_data)]
+        if self.setup_type == config.SETUP_TYPES.WEATHER:
+          type = 'weather'
+          high_quality = high_quality[high_quality.weather != 'None']
+          row = config.ROW_CONDITIONS
+        elif self.setup_type == config.SETUP_TYPES.VELOCITY:
+          type = 'speed_kmh'
+          high_quality = high_quality[high_quality.speed_kmh != 'UNK']
+          row = config.ROW_VELOCIIES
+        elif self.setup_type == config.SETUP_TYPES.VEHICLE:
+          type = 'vehicle'
+          row = config.ROW_VEHICLES
+
+
+        normal_data = high_quality[high_quality[type].isin(self.normal_data)]
+        anomalous_data = high_quality[high_quality[type].isin(self.anomalous_data)]
+        train_data, test_data_normal = train_test_split(normal_data, test_size=0.15, shuffle=True, random_state=current_seed, stratify=normal_data[type])
+        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=current_seed, stratify=train_data[type])
+
         #anomalous_data = self.balance_data_by_vehicle(anomalous_data)
-        train_data, test_data_normal = train_test_split(normal_data, test_size=0.15, shuffle=True, random_state=current_seed, stratify=normal_data.vehicle)
-        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=current_seed, stratify=train_data.vehicle)
         train_data = self.adjust_sample_number_to_batch_size(train_data, batch_size)
         #print(f"training with {len(train_data)} (normal) samples")
 
@@ -204,18 +217,20 @@ class TrainingSetup():
         #sample same number of anomalous data to test
         #number_anomlous = number_of_normal_test_sampels if number_of_normal_test_sampels < len(anomalous_data) else len(anomalous_data)
         #test_data_normal = self.balance_data_by_vehicle(test_data_normal)
-        
-        min_class = min(anomalous_data[current_row].value_counts())
-        anomalous_test_data = anomalous_data.groupby(current_row).sample(min_class, random_state=current_seed)
+
+        #print(anomalous_data[type].value_counts())
+        min_class = min(anomalous_data[type].value_counts())
+        anomalous_test_data = anomalous_data.groupby(type).sample(min_class, random_state=current_seed)
         #anomalous_data = anomalous_data.drop(anomalous_test_data.index)
-        anomalous_val_data = anomalous_data.groupby(current_row).sample(min_class, random_state=current_seed)
+        anomalous_val_data = anomalous_data.groupby(type).sample(min_class, random_state=current_seed)
         #anomalous_test_data = anomalous_test_data[len(val_data_normal) + 1:] #take first samples from anomalous test data for validation druing trianing
-        #print(f"testing with {len(anomalous_data)} anomalous samples")
+        print(f"testing with {len(anomalous_test_data)} anomalous samples")
+        print(f"length of normal test data {len(test_data_normal)}")
         #print(f"Validating with {len(anomalous_val_data)} anomalous samples")
         if len(test_data_normal) > len(anomalous_test_data):
-          test_data_normal = test_data_normal.groupby(current_row).sample(len(anomalous_test_data) // len(self.normal_data),random_state=current_seed )
+          test_data_normal = test_data_normal.groupby(type).sample(len(anomalous_test_data) // len(self.normal_data),random_state=current_seed )
         else:
-          anomalous_test_data = anomalous_test_data.groupby(current_row).sample(len(test_data_normal) // len(self.anomalous_data), random_state=current_seed)
+          anomalous_test_data = anomalous_test_data.groupby(type).sample(len(test_data_normal) // len(self.anomalous_data), random_state=current_seed)
 
         frames = [anomalous_test_data, test_data_normal]
         concatenated_test_data = pd.concat(frames)
@@ -230,12 +245,12 @@ class TrainingSetup():
         #concatenated_test_data = self.balance_data_by_vehicle(concatenated_test_data)
         #concatenated_val_data = self.balance_data_by_vehicle(concatenated_val_data)
 
-        print(f"Train Data: \n{train_data['vehicle'].value_counts()} \n\nDistribution in Train data: \n{train_data['vehicle'].value_counts(normalize=True)}")
-        print(f"Test Data: \n{concatenated_test_data['vehicle'].value_counts()}\n\nDistribution in Test data: \n{concatenated_test_data['vehicle'].value_counts(normalize=True)}")
-        print(f"Validation Data: \n{concatenated_val_data['vehicle'].value_counts()} \n\nDistribution in Validation data: \n{concatenated_val_data['vehicle'].value_counts(normalize=True)}")
-        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, self.normal_data, model_type=model_type,on_the_fly=True)
-        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data, model_type=model_type, on_the_fly=True)
-        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data, model_type=model_type, on_the_fly=True)
+        print(f"Train Data: \n{train_data[type].value_counts()} \n\nDistribution in Train data: \n{train_data[type].value_counts(normalize=True)}")
+        print(f"Test Data: \n{concatenated_test_data[type].value_counts()}\n\nDistribution in Test data: \n{concatenated_test_data[type].value_counts(normalize=True)}")
+        print(f"Validation Data: \n{concatenated_val_data[type].value_counts()} \n\nDistribution in Validation data: \n{concatenated_val_data[type].value_counts(normalize=True)}")
+        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, self.normal_data, self.anomalous_data,row,on_the_fly=True)
+        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, on_the_fly=True)
+        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, on_the_fly=True)
 
         train_loader = torch.utils.data.DataLoader(normal_train_data, batch_size=BATCH_SIZE, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=BATCH_SIZE_VAL, shuffle=True)
