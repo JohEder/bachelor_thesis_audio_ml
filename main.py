@@ -34,7 +34,7 @@ t_scenario_tf = TrainingSetup(['T'], ['B', 'M'])
 t_scenario_idnn = TrainingSetup(['T'], ['C', 'B', 'M'])
 t_scenario_ae = TrainingSetup(['T'], ['B', 'M'])
 
-
+velocity_setup_70_30 = TrainingSetup(['70'], ['30'], config.SETUP_TYPES.VELOCITY)
 velocity_setup_30 = TrainingSetup(['50'], ['30'], config.SETUP_TYPES.VELOCITY)
 velocity_setup_70 = TrainingSetup(['50'], ['70'], config.SETUP_TYPES.VELOCITY)
 velocity_setup_both = TrainingSetup(['50'], ['30', '70'], config.SETUP_TYPES.VELOCITY)
@@ -77,7 +77,7 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
 
 fig_results, axe = plt.subplots(1, 1, figsize=(12, 4))
 #train_and_plot(ae_1, True)
-train_and_plot([velocity_setup_30], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
+train_and_plot([velocity_setup_70_30, velocity_setup_30], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
 #train_and_plot([velocity_setup_30, velocity_setup_70, velocity_setup_both], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
 #train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.TRANSFORMER, True)
 #train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, m_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.AUTOENCODER, True)

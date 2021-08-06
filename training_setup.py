@@ -70,7 +70,7 @@ class TrainingSetup():
           transformer.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
-            val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device, number_of_batches_eval=100) #batch size in evalution is only one
+            val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and False:
@@ -101,7 +101,7 @@ class TrainingSetup():
           autoencoder.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.autoencoder.train_epoch(autoencoder, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device, number_of_batches_eval=100) #batch size in evalution is only one
+            val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and False:
@@ -133,7 +133,7 @@ class TrainingSetup():
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device, number_of_batches_eval=100)
+            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best and False: # remove later, just a test!
@@ -193,7 +193,7 @@ class TrainingSetup():
           type = 'speed_kmh'
           high_quality = high_quality[high_quality.speed_kmh != 'UNK']
           row = config.ROW_VELOCIIES
-        elif self.setup_type == config.SETUP_TYPES.VEHICLE:
+        elif self.setup_type == config.SETUP_TYPES.VEHICLES:
           type = 'vehicle'
           row = config.ROW_VEHICLES
 
@@ -231,6 +231,11 @@ class TrainingSetup():
           test_data_normal = test_data_normal.groupby(type).sample(len(anomalous_test_data) // len(self.normal_data),random_state=current_seed )
         else:
           anomalous_test_data = anomalous_test_data.groupby(type).sample(len(test_data_normal) // len(self.anomalous_data), random_state=current_seed)
+
+        if len(val_data_normal) > len(anomalous_val_data):
+          val_data_normal = val_data_normal.groupby(type).sample(len(anomalous_val_data) // len(self.normal_data),random_state=current_seed )
+        else:
+          anomalous_val_data = anomalous_val_data.groupby(type).sample(len(val_data_normal) // len(self.anomalous_data), random_state=current_seed)
 
         frames = [anomalous_test_data, test_data_normal]
         concatenated_test_data = pd.concat(frames)

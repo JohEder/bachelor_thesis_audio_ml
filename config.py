@@ -6,7 +6,7 @@ CLASSES = ['None','C','T', 'M', 'B'] #Background Noise, Car, Truck, Motorcycle, 
 MODEL_TYPES = Enum("MODEL_TYPES", ["TRANSFORMER", "AUTOENCODER", "IDNN"])
 SETUP_TYPES = Enum("SETUP_TYPES", ['VEHICLES', 'WEATHER', 'VELOCITY'])
 
-NUMBER_REPEAT_EXPERIMENT = 3
+NUMBER_REPEAT_EXPERIMENT = 1
 
 #params for mel spectrogram
 SAMPLE_RATE = 22500
