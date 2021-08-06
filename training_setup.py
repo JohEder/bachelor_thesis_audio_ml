@@ -73,7 +73,7 @@ class TrainingSetup():
             val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
-            if len(val_loader) > 50 and False:
+            if len(val_loader) > 50:
               if roc_auc > roc_auc_best:
                 best_model = copy.deepcopy(transformer)
                 #model_name = save_model(model_name, transformer, epoch)
@@ -104,7 +104,7 @@ class TrainingSetup():
             val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
-            if len(val_loader) > 50 and False:
+            if len(val_loader) > 50:
               if roc_auc > roc_auc_best:
                 best_model = copy.deepcopy(autoencoder)
                 #model_name = save_model(model_name, transformer, epoch)
@@ -136,7 +136,7 @@ class TrainingSetup():
             val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
-            if len(val_loader) > 50 and roc_auc > roc_auc_best and False: # remove later, just a test!
+            if len(val_loader) > 50 and roc_auc > roc_auc_best:
               best_model = copy.deepcopy(idnn)
               roc_auc_best = roc_auc
             else: 
