@@ -57,7 +57,7 @@ class IdmtTrafficDataSet(Dataset):
         elif item_class in self.anomalous_classes:
             label = 1
         else: 
-            raise Exception("Class Label not in normal and anomalous classes! Wrong Labelling?")
+            raise Exception(f"Class Label {item_class} not in normal and anomalous classes! Wrong Labelling?")
         return signal, label, item_class
 
     def _resample(self, signal, sr):

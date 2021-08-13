@@ -7,43 +7,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import os
-import training_setup
+import librosa
 
 from torch.utils import data
 import config
 
-def generateTwoScenarios(classes):
-    training_setups_first_scenario = []
-    for category in classes:
-        if category == 'None':
-            continue
-
-        normal_classes = ['None', category]
-        anomalous_classes = list(filter(lambda x: x not in normal_classes, classes))
-        training_setups_first_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes,))
-
-
-
-
-    training_setups_second_scenario = []
-    for category in classes:
-
-        anomalous_classes = [category]
-        normal_classes = list(filter(lambda x: x not in anomalous_classes, classes))
-        training_setups_second_scenario.append(training_setup.TrainingSetup(normal_classes, anomalous_classes))
-
-    return training_setups_first_scenario, training_setups_second_scenario
-
-def save_model_comlicated(experiment_name, scenario, model, model_name, epoch):
-  #a valid destination could be ~/results/my_experiment/scenario_1/CTBM/CTBM.pth
-  model_name += '_' + str(epoch)
-  path = config.RESULT_DIR + experiment_name + "/" + scenario + "/" + model_name
-  if not os.path.exists(path):
-    os.makedirs(path)
-  
-  model_name_save = model_name + '.pth'
-  torch.save(model, path + "/" + model_name_save)
-  return model_name
 
 def save_model(model_name, model, epoch):
   model_name += '_' + str(epoch)
@@ -55,6 +23,16 @@ def load_model(name):
   name +='.pth'
   model = torch.load(config.RESULT_DIR + name)
   return model
+
+def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto', xmax=None):
+  axs.set_title(title or 'Spectrogram (db)')
+  axs.set_ylabel(ylabel)
+  axs.set_xlabel('frame')
+  im = axs.imshow(librosa.power_to_db(spec), origin='lower', aspect=aspect)
+  if xmax:
+    axs.set_xlim((0, xmax))
+  fig.colorbar(im, ax=axs)
+  plt.show(block=False)
 
 def plot_roc_curve(title, fp_rate, tp_rate, roc_auc, axe):
   axe.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")
