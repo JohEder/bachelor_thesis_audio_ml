@@ -32,7 +32,6 @@ def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto
   if xmax:
     axs.set_xlim((0, xmax))
   fig.colorbar(im, ax=axs)
-  plt.show(block=False)
 
 def plot_roc_curve(title, fp_rate, tp_rate, roc_auc, axe):
   axe.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")
@@ -69,9 +68,11 @@ def plot_all_rocs(title, roc_aucs, axe):
   sns.pointplot(data=roc_aucs, ax=axe, join=False, palette='inferno')
   axe.set_title(title)
 
-def plot_all_results(data, axe):
-  df = pd.DataFrame(data, columns=data.keys())
+def plot_all_results(df, axe):
   sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='Normal_Data', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
+
+def plot_mel_filter_experiment(df, axe):
+  sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='mel_filters', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
 
 def convert_to_df(losses):
   losses_map = {}
@@ -79,11 +80,11 @@ def convert_to_df(losses):
   losses_df = pd.DataFrame(losses_map, columns=losses_map.keys())
   return losses_df
 
-def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps=""):
+def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps="", mel_bins=config.N_MELS):
   if model_type == config.MODEL_TYPES.TRANSFORMER:
     with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
       f.write(f"Model Name: {model_name}\n" +
           f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}, Optimizer: {optimizer}, Weight Decay: {weight_decay} Total Steps: {total_steps}, Warm up Steps: {warm_up_steps}\n" +
-          f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {config.N_MELS}\n" + 
+          f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {mel_bins}\n" + 
           f"NUMBER_OF_FRAMES: {config.NUMBER_OF_FRAMES}, EMBEDDING_SIZE = {config.EMBEDDING_SIZE}, N_HEADS = {config.N_HEADS}, N_ENCODER_LAYERS = {config.N_ENCODER_LAYERS}, DROPOUT = {config.DROPOUT}, DIM_FEED_FORWARD = {config.DIM_FEED_FORWARD}\n"+
           f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}  \n\n {summary}")

@@ -9,9 +9,10 @@ import config
 
 
 class Idnn(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, mel_bins):
         super(Idnn, self).__init__()
         self.input = input_dim
+        self.mel_bins = mel_bins
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 64),
             nn.ReLU(),
@@ -26,7 +27,7 @@ class Idnn(nn.Module):
             nn.ReLU(),
             nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(64, config.N_MELS)
+            nn.Linear(64, mel_bins)
         )
 
     def preprocess_input(self, x):
@@ -95,7 +96,7 @@ def mse_loss(input, output):
     loss = nn.MSELoss()
     return loss(output, input)
 
-def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
+def get_anom_scores(model, val_loader, device, number_of_batches_eval=None, mel_bins=config.N_MELS):
     anom_scores = []
     targets = []
     orig_class_labels = []
@@ -113,8 +114,8 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
             inputs = patch_batch_framewise(inputs)
             #print(inputs.shape)
             loss_total_current_spec = 0
-            for i in range(0, inputs.shape[1] - 128,128): #iterate through samples
-                input_frames = inputs[:,i:i+128,:]
+            for i in range(0, inputs.shape[1] - mel_bins, mel_bins): #iterate through samples
+                input_frames = inputs[:,i:i+mel_bins,:]
                 #print(input_frames.shape)
                 output, middle_frame = model(input_frames) #ith frame gets propagated
                 #print(output.shape)

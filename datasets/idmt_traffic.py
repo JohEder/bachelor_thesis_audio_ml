@@ -6,18 +6,18 @@ import os
 import pandas as pd
 from torchvision.transforms.transforms import Grayscale
 import config
-from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT, N_MELS
+from config import AUDIO_DIR, MODEL_TYPES, SAMPLE_RATE, HOP_LENGTH, N_FFT
 
 class IdmtTrafficDataSet(Dataset):
 
-    def __init__(self, annotations_file, target_sample_rate, normal_classes, anomalous_classes, row, on_the_fly=True):
+    def __init__(self, annotations_file, target_sample_rate, normal_classes, anomalous_classes, row, mel_bins, on_the_fly=True):
         self.annotations =  annotations_file if isinstance(annotations_file, pd.DataFrame) else pd.read_csv(annotations_file)
         self.audio_dir = AUDIO_DIR #new audio dir with specrtograms
         self.audio_transformation = torchaudio.transforms.MelSpectrogram(
         sample_rate=SAMPLE_RATE,
         n_fft=N_FFT, # Frame Size
         hop_length=HOP_LENGTH, #here half the frame size
-        n_mels=N_MELS,
+        n_mels=mel_bins,
         normalized=True #magnitude scaling
         )
         self.image_transformation = transforms.Compose([

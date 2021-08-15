@@ -1,6 +1,7 @@
 import datetime
 import math
 from operator import pos
+from os import replace
 
 from scipy.sparse.construct import rand
 import models.autoencoder
@@ -12,7 +13,7 @@ import models.transformer
 from models.transformer import TransformerModel
 from torch.nn.modules import module
 import config
-from config import AUDIO_DIR, NUMBER_OF_FRAMES_IDNN, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
+from config import AUDIO_DIR, NUMBER_OF_FRAMES_AE, NUMBER_OF_FRAMES_IDNN, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
 from import_idmt_traffic_dataset import *
 import pandas as pd
 from datasets.idmt_traffic import *
@@ -38,7 +39,7 @@ class TrainingSetup():
     def __str__(self):
         return f'Normal classes: {self.normal_data} Anomalous:{self.anomalous_data}'
 
-    def run(self, model_type, number_of_runs=1):
+    def run(self, model_type, number_of_runs=1, number_mel_bins=config.N_MELS):
       auc_roc_scores = []
       for i in range(number_of_runs):
         current_seed = config.RANDOM_SEEDS[i]
@@ -54,9 +55,9 @@ class TrainingSetup():
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
-          transformer = TransformerModel(EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
+          transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*2, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
           LEARNING_RATE = 0.00001
           WEIGHT_DECAY = 0.0001
           #optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) 
@@ -87,11 +88,11 @@ class TrainingSetup():
           total_training_time = training_finished - training_start
           summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 22, 256).to(device))
         elif model_type == MODEL_TYPES.AUTOENCODER:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #print(next(iter(train_loader)).shape)
           LEARNING_RATE = 0.001
           EPOCHS = config.EPOCHS_AE
-          INPUT_DIM = 640
+          INPUT_DIM = number_mel_bins * NUMBER_OF_FRAMES_AE
           autoencoder = models.autoencoder.AutoEncoder(input_dim=INPUT_DIM)
           optimizer = torch.optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
           total_steps = len(train_loader) * EPOCHS
@@ -119,13 +120,13 @@ class TrainingSetup():
           summary = pms.summary(autoencoder, torch.ones(BATCH_SIZE, INPUT_DIM).to(device))
 
         elif model_type == MODEL_TYPES.IDNN:
-          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed)
+          train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           input_sample, label, _  = (next(iter(train_loader)))
           input_shape = input_sample.shape #[32, 1, 128, 44]
           #print(input_shape)
           LEARNING_RATE = 0.001
           EPOCHS = config.EPOCHS_IDNN
-          idnn = models.idnn.Idnn(input_dim=config.N_MELS * (config.NUMBER_OF_FRAMES_IDNN - 1))
+          idnn = models.idnn.Idnn(input_dim=number_mel_bins * (config.NUMBER_OF_FRAMES_IDNN - 1), mel_bins=number_mel_bins)
           optimizer = torch.optim.Adam(idnn.parameters(), lr=LEARNING_RATE)
           total_steps = len(train_loader) * EPOCHS
           warm_up_steps = 0
@@ -133,7 +134,7 @@ class TrainingSetup():
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device)
+            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device, mel_bins=number_mel_bins)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best:
@@ -145,17 +146,17 @@ class TrainingSetup():
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
-          summary = pms.summary(idnn, torch.ones(BATCH_SIZE, N_MELS, NUMBER_OF_FRAMES_IDNN).to(device))
+          summary = pms.summary(idnn, torch.ones(BATCH_SIZE, number_mel_bins, NUMBER_OF_FRAMES_IDNN).to(device))
         #evaluation
-        fp_rate, tp_rate, roc_auc, scores_classes = self.evaluate_model(best_model, test_loader, device, model_type)
+        fp_rate, tp_rate, roc_auc, scores_classes = self.evaluate_model(best_model, val_loader, device, model_type, number_mel_bins)
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
         #plot_and_save_loss_curve(self.setup_name, losses)
-        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps)
+        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
       return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes
 
 
-    def evaluate_model(self, best_model, test_loader,device, model_type):
+    def evaluate_model(self, best_model, test_loader,device, model_type, mel_bins):
       #model = load_model(model_name)
       if model_type == MODEL_TYPES.TRANSFORMER:
         test_anom_scores, test_targets, original_class_labels = models.transformer.get_anom_scores(best_model, test_loader, device)
@@ -170,17 +171,18 @@ class TrainingSetup():
         #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
         return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels)
       elif model_type == MODEL_TYPES.IDNN:
-        test_anom_scores, test_targets, orig_class_labels = models.idnn.get_anom_scores(best_model, test_loader, device)
+        test_anom_scores, test_targets, orig_class_labels = models.idnn.get_anom_scores(best_model, test_loader, device, mel_bins=mel_bins)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
         return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels)
 
 
-    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, current_seed):
+    def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, current_seed, mel_bins):
         if len((set(self.normal_data) & set(self.anomalous_data))) > 0:
           raise Exception("Intersection between normal and anomalous classes should be empty!")
 
         all_data = import_idmt_traffic_dataset(annotations)
+        all_data = all_data[all_data.is_background | all_data.vehicle != 'None'] #filter sounds that are not background and not vehicles
         high_quality = all_data[all_data.microphone == 'SE']
         print(f"High quality total data: {len(high_quality)}")
 
@@ -200,8 +202,8 @@ class TrainingSetup():
 
         normal_data = high_quality[high_quality[type].isin(self.normal_data)]
         anomalous_data = high_quality[high_quality[type].isin(self.anomalous_data)]
-        train_data, test_data_normal = train_test_split(normal_data, test_size=0.15, shuffle=True, random_state=current_seed, stratify=normal_data[type])
-        train_data, val_data_normal = train_test_split(train_data, test_size=0.02,shuffle=True, random_state=current_seed, stratify=train_data[type])
+        train_data, test_data_normal = train_test_split(normal_data, test_size=0.2, shuffle=True, random_state=current_seed, stratify=normal_data[type])
+        train_data, val_data_normal = train_test_split(train_data, test_size=0.1,shuffle=True, random_state=current_seed, stratify=train_data[type])
 
         #anomalous_data = self.balance_data_by_vehicle(anomalous_data)
         train_data = self.adjust_sample_number_to_batch_size(train_data, batch_size)
@@ -233,7 +235,7 @@ class TrainingSetup():
           anomalous_test_data = anomalous_test_data.groupby(type).sample(len(test_data_normal) // len(self.anomalous_data), random_state=current_seed)
 
         if len(val_data_normal) > len(anomalous_val_data):
-          val_data_normal = val_data_normal.groupby(type).sample(len(anomalous_val_data) // len(self.normal_data),random_state=current_seed )
+          val_data_normal = val_data_normal.groupby(type).sample(len(anomalous_val_data) // len(self.normal_data),random_state=current_seed, replace=True )
         else:
           anomalous_val_data = anomalous_val_data.groupby(type).sample(len(val_data_normal) // len(self.anomalous_data), random_state=current_seed)
 
@@ -253,9 +255,9 @@ class TrainingSetup():
         print(f"Train Data: \n{train_data[type].value_counts()} \n\nDistribution in Train data: \n{train_data[type].value_counts(normalize=True)}")
         print(f"Test Data: \n{concatenated_test_data[type].value_counts()}\n\nDistribution in Test data: \n{concatenated_test_data[type].value_counts(normalize=True)}")
         print(f"Validation Data: \n{concatenated_val_data[type].value_counts()} \n\nDistribution in Validation data: \n{concatenated_val_data[type].value_counts(normalize=True)}")
-        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, self.normal_data, self.anomalous_data,row,on_the_fly=True)
-        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, on_the_fly=True)
-        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, on_the_fly=True)
+        normal_train_data = IdmtTrafficDataSet(train_data, SAMPLE_RATE, self.normal_data, self.anomalous_data,row, mel_bins, on_the_fly=True)
+        val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, mel_bins, on_the_fly=True)
+        test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, mel_bins, on_the_fly=True)
 
         train_loader = torch.utils.data.DataLoader(normal_train_data, batch_size=BATCH_SIZE, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=BATCH_SIZE_VAL, shuffle=True)

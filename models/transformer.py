@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import random
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-from config import EMBEDDING_SIZE, input_dim, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
+from config import EMBEDDING_SIZE, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
 import math
 from transformers import AdamW
 from transformers.optimization import get_cosine_schedule_with_warmup, get_linear_schedule_with_warmup
