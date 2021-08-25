@@ -100,6 +100,7 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None, mel_
     anom_scores = []
     targets = []
     orig_class_labels = []
+    reconstructions = []
     model.to(device)
     model.eval()
     with torch.no_grad():
@@ -114,22 +115,29 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None, mel_
             inputs = patch_batch_framewise(inputs)
             #print(inputs.shape)
             loss_total_current_spec = 0
+            original_frames = []
+            reconstructed_frames = []
             for i in range(0, inputs.shape[1] - mel_bins, mel_bins): #iterate through samples
                 input_frames = inputs[:,i:i+mel_bins,:]
                 #print(input_frames.shape)
                 output, middle_frame = model(input_frames) #ith frame gets propagated
                 #print(output.shape)
                 #print(index)
+                original_frames.append(middle_frame)
+                reconstructed_frames.append(output)
                 assert middle_frame.shape == output.shape
                 loss = mse_loss(middle_frame, output)
                 loss_total_current_spec += loss.item()
 
             loss_total_current_spec /= inputs.shape[1] #divide by number of patches
             #print(loss_total_current_spec)
+            orig_spec, recons_spec = torch.cat(original_frames), torch.cat(reconstructed_frames)
+            assert orig_spec.shape == recons_spec.shape
+            reconstructions.append((orig_spec, recons_spec))
             anom_scores.append(loss_total_current_spec)
             targets.append(target)
             orig_class_labels.append(class_label[0])
-    return anom_scores, targets, orig_class_labels
+    return anom_scores, targets, orig_class_labels, reconstructions
 
 def patch_batch_framewise(data_batch):
     #input of shape (batch_size, channels, mel_filters, frames)

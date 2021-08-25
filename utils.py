@@ -13,8 +13,7 @@ from torch.utils import data
 import config
 
 
-def save_model(model_name, model, epoch):
-  model_name += '_' + str(epoch)
+def save_model(model_name, model):
   model_name_save = model_name + '.pth'
   torch.save(model, config.RESULT_DIR  + model_name_save)
   return model_name
@@ -23,6 +22,18 @@ def load_model(name):
   name +='.pth'
   model = torch.load(config.RESULT_DIR + name)
   return model
+
+def plot_and_save_orig_and_recons(orginial_recons, orig_class):
+  original, recons = orginial_recons
+  #torch.set_printoptions(threshold=20000)
+  print(original)
+  print(recons)
+  original, recons = original.cpu(), recons.cpu()
+  fig, axes = plt.subplots(2, 1)
+  plot_spectrogram(original, fig, axes[0], title='Original:' + orig_class)
+  plot_spectrogram(recons, fig, axes[1], title='Reconstruction:' + orig_class)
+  fig.savefig(config.RESULT_DIR + 'orig_recons_plot.png')
+  #plt.show()
 
 def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto', xmax=None):
   axs.set_title(title or 'Spectrogram (db)')

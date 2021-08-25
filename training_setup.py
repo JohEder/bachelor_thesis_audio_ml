@@ -19,7 +19,7 @@ import pandas as pd
 from datasets.idmt_traffic import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, roc_curve
-from utils import save_hyperparams
+from utils import save_hyperparams, save_model
 from transformers.optimization import get_cosine_schedule_with_warmup, get_linear_schedule_with_warmup
 from transformers import AdamW
 import pytorch_model_summary as pms
@@ -39,7 +39,7 @@ class TrainingSetup():
     def __str__(self):
         return f'Normal classes: {self.normal_data} Anomalous:{self.anomalous_data}'
 
-    def run(self, model_type, number_of_runs=1, number_mel_bins=config.N_MELS):
+    def run(self, model_type, number_of_runs=1, number_mel_bins=config.N_MELS, model_save=True):
       auc_roc_scores = []
       for i in range(number_of_runs):
         current_seed = config.RANDOM_SEEDS[i]
@@ -71,7 +71,7 @@ class TrainingSetup():
           transformer.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
-            val_anom_scores, val_targets, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
+            val_anom_scores, val_targets, _, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50:
@@ -102,7 +102,7 @@ class TrainingSetup():
           autoencoder.train() #mode
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.autoencoder.train_epoch(autoencoder, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
+            val_anom_scores, val_targets, _, _ = models.autoencoder.get_anom_scores(autoencoder, val_loader, device) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50:
@@ -134,7 +134,7 @@ class TrainingSetup():
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
             losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
-            val_anom_scores, val_targets, _ = models.idnn.get_anom_scores(idnn, val_loader, device, mel_bins=number_mel_bins)
+            val_anom_scores, val_targets, _, _ = models.idnn.get_anom_scores(idnn, val_loader, device, mel_bins=number_mel_bins)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best:
@@ -148,33 +148,35 @@ class TrainingSetup():
           total_training_time = training_finished - training_start
           summary = pms.summary(idnn, torch.ones(BATCH_SIZE, number_mel_bins, NUMBER_OF_FRAMES_IDNN).to(device))
         #evaluation
-        fp_rate, tp_rate, roc_auc, scores_classes = self.evaluate_model(best_model, val_loader, device, model_type, number_mel_bins)
+        fp_rate, tp_rate, roc_auc, scores_classes, orig_recons = self.evaluate_model(best_model, val_loader, device, model_type, number_mel_bins)
+        if model_save:
+          save_model(self.setup_name + '_' + str(model_type), best_model)
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
         #plot_and_save_loss_curve(self.setup_name, losses)
         save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
-      return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes
+      return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes, orig_recons
 
 
     def evaluate_model(self, best_model, test_loader,device, model_type, mel_bins):
       #model = load_model(model_name)
       if model_type == MODEL_TYPES.TRANSFORMER:
-        test_anom_scores, test_targets, original_class_labels = models.transformer.get_anom_scores(best_model, test_loader, device)
+        test_anom_scores, test_targets, original_class_labels, orig_recons = models.transformer.get_anom_scores(best_model, test_loader, device)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
         #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
-        return fp_rate, tp_rate, roc_auc, (test_anom_scores, original_class_labels)
+        return fp_rate, tp_rate, roc_auc, (test_anom_scores, original_class_labels), orig_recons
       elif model_type == MODEL_TYPES.AUTOENCODER:
-        test_anom_scores, test_targets, orig_class_labels = models.autoencoder.get_anom_scores(best_model, test_loader, device)
+        test_anom_scores, test_targets, orig_class_labels, orig_recons = models.autoencoder.get_anom_scores(best_model, test_loader, device)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
         #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)
-        return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels)
+        return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels), orig_recons
       elif model_type == MODEL_TYPES.IDNN:
-        test_anom_scores, test_targets, orig_class_labels = models.idnn.get_anom_scores(best_model, test_loader, device, mel_bins=mel_bins)
+        test_anom_scores, test_targets, orig_class_labels, orig_recons = models.idnn.get_anom_scores(best_model, test_loader, device, mel_bins=mel_bins)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
-        return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels)
+        return fp_rate, tp_rate, roc_auc, (test_anom_scores, orig_class_labels), orig_recons
 
 
     def get_normal_and_anomalous_data(self, annotations, batch_size, batch_size_test, current_seed, mel_bins):
@@ -281,8 +283,3 @@ class TrainingSetup():
       g = pd.DataFrame(g.apply(lambda x: x.sample(g.size().min()).reset_index(drop=True)))
       return g
     
-    #def balance_data_normal_anomalous(self, normal_data):
-
-
-#Klassse ist verantwortlich die Daten zu holen, das model zu trainieren
-#output: trainiertes model und loss curve

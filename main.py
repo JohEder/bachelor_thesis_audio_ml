@@ -2,7 +2,7 @@ from torch import utils
 import config
 from training_setup import TrainingSetup
 import logging
-from utils import plot_all_rocs, convert_to_df, plot_mel_filter_experiment, plot_roc_curve, plot_all_results, plot_error_distribution
+from utils import plot_all_rocs, convert_to_df, plot_mel_filter_experiment, plot_roc_curve, plot_all_results, plot_error_distribution, plot_and_save_orig_and_recons
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -44,9 +44,9 @@ all_setups = []
 all_mel_filters = []
 all_seeds = []
 
-number_of_mels = [16, 32, 64, 128]
+number_of_mels = [config.N_MELS]
 
-def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
+def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=True):
     global all_roc_scores
     global all_model_types
     global all_setups
@@ -62,7 +62,7 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
     for i in range(len(scenario)):
         for n_mels in number_of_mels:
             print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type} : Mel Filters: {n_mels}")
-            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=n_mels)
+            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes, orig_recons = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=n_mels, model_save=model_save)
             scores, classes = scores_classes
             print(f"Classes: {classes}")
             all_roc_scores += roc_auc_scores
@@ -70,6 +70,10 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False):
             all_model_types += [str(model_type)[12:] for j in range(len(roc_auc_scores))]
             all_mel_filters += [n_mels for i in range(len(roc_auc_scores))]
             all_seeds += [config.RANDOM_SEEDS[j] for j in range(config.NUMBER_REPEAT_EXPERIMENT)]
+        
+        plot_and_save_orig_and_recons(orig_recons[50], classes[50])
+        plot_and_save_orig_and_recons(orig_recons[10], classes[10])
+        plot_and_save_orig_and_recons(orig_recons[20], classes[20])
 
         if plot_roc_and_loss:
             plot_error_distribution(axes_errors[i], scores_classes, scenario[i].setup_name)
@@ -92,6 +96,8 @@ f"Epochs AE{config.EPOCHS_AE}\n" +
 f"Epochs ID{config.EPOCHS_IDNN}\n" +
 f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 
+#train_and_plot([none_scenario_tf], config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True, model_save=False)
+
 #Velocities
 #1h 50 minutes
 #train_and_plot([velocity_setup_70_30, velocity_setup_30], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
@@ -112,13 +118,13 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 
 #Experiments
 #bei runs:
-train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
-train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
-train_and_plot([c_scenario_tf], config.MODEL_TYPES.TRANSFORMER, False)
+#train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
+#train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
+train_and_plot([c_scenario_tf], config.MODEL_TYPES.TRANSFORMER, False, model_save=config.SAVE_MODELS)
+
+#6h
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.IDNN, plot_roc_and_loss=False)
-#train_and_plot([c_scenario_tf, c_t_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=False)
-#train_and_plot([c_scenario_tf, c_t_scenario_tf], config.MODEL_TYPES.TRANSFORMER, False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=False)
 
 

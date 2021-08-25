@@ -1,7 +1,9 @@
+from ast import dump
 from matplotlib.pyplot import cla
 import torch
 from torch import nn
 from config import NUMBER_OF_FRAMES_AE
+import config
 
 class AutoEncoder(nn.Module):
   def __init__(self, input_dim):
@@ -96,6 +98,7 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
   anom_scores = []
   targets = []
   class_labels = []
+  reconstructions = []
   model.to(device)
   model.eval()
   with torch.no_grad():
@@ -106,26 +109,36 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
             print(f"Progress: {batch_number}/{len(val_loader)}")
         inputs, target, class_label = data
         inputs = inputs.to(device)
-        #print(inputs.shape)
-        inputs = patch_batch_ae(inputs, stride=1)
+        #print(inputs.shape) #torch.Size([1, 1, 128, 88])
+        inputs_patched = patch_batch_ae(inputs, stride=1)
         #print(inputs.shape)
         loss_total_current_spec = 0
-        for i in range(inputs.shape[1]): #iterate through patches
-          input_frames = inputs[:, i, :]
+        reconstructed_frames = []
+        for i in range(inputs_patched.shape[1]): #iterate through patches
+          input_frames = inputs_patched[:, i, :]
           #print(input_frames.shape)
           output= model(input_frames) #ith frame gets propagated
-          #print(output.shape)
+          #print(output.shape) #([1, 640])
+          reconstructed_frames.append(output)
           #print(index)
           assert input_frames.shape == output.shape
           loss = mse_loss(input_frames, output)
           loss_total_current_spec += loss.item()
+        reconstructed_spec = torch.cat(reconstructed_frames, dim=0)
+        #print(f"Reconstructed Spec: {reconstrudted_spec.shape}") #torch.Size([84, 640])
+        inputs = torch.squeeze(inputs)
+        inputs, reconstructed_spec = torch.reshape(inputs, (config.N_MELS, -1)), torch.reshape(reconstructed_spec, (config.N_MELS, -1))
+        print(inputs.shape)
+        print(reconstructed_spec.shape)
+        #assert reconstructed_spec.shape == inputs.shape
+        reconstructions.append((inputs, reconstructed_spec))
 
         loss_total_current_spec /= inputs.shape[1] #divide by number of patches
         #print(loss_total_current_spec)
         anom_scores.append(loss_total_current_spec)
         targets.append(target)
         class_labels.append(class_label[0])
-    return anom_scores, targets, class_labels
+    return anom_scores, targets, class_labels, reconstructions
 
 def mse_loss(input, output):
     loss = nn.MSELoss()
