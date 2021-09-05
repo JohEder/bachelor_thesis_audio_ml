@@ -10,19 +10,19 @@ NUMBER_REPEAT_EXPERIMENT = 1
 SAVE_MODELS = False
 
 #params for mel spectrogram
-SAMPLE_RATE = 22500
+SAMPLE_RATE = 22050
 N_FFT=2048 #is also window size
 HOP_LENGTH=512
-N_MELS=128
+N_MELS=64
 NUMBER_OF_FRAMES = 2
 NUMBER_OF_FRAMES_AE = 5
 NUMBER_OF_FRAMES_IDNN = 5
 
 
 Total_steps = 1000
-EPOCHS_TF = 5
-EPOCHS_AE = 20
-EPOCHS_IDNN = 50
+EPOCHS_TF = 30
+EPOCHS_AE = 1
+EPOCHS_IDNN = 1
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.txt"

@@ -16,6 +16,7 @@ class IdmtTrafficDataSet(Dataset):
         self.audio_transformation = torchaudio.transforms.MelSpectrogram(
         sample_rate=SAMPLE_RATE,
         n_fft=N_FFT, # Frame Size
+        win_length=N_FFT//2,
         hop_length=HOP_LENGTH, #here half the frame size
         n_mels=mel_bins,
         normalized=True #magnitude scaling

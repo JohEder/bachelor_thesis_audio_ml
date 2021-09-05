@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from config import NUMBER_OF_FRAMES_AE
 import config
+import random
 
 class AutoEncoder(nn.Module):
   def __init__(self, input_dim):
@@ -77,9 +78,18 @@ def train_epoch(model, train_loader, optimizer, epoch, device):
     model.train()
     epoch_loss = []
     for batch_index, (data_batch, _, _) in enumerate(train_loader):
-        data_batch = patch_batch_ae(data_batch)
+        #data_batch = patch_batch_ae(data_batch)
         #print(data_batch.shape)
-        data_batch = data_batch[:,1,:]
+        sliced_batch = torch.split(data_batch, 5, dim=3)
+        sliced_batch = sliced_batch[:-1]
+        print(sliced_batch[-1].shape)
+        print(f"len sliced batch: {len(sliced_batch)}")
+        patch_num = random.randint(0, len(sliced_batch)-1)
+        print(f"sliced batch[patch_num]: {sliced_batch[patch_num].shape}")
+        data_batch = sliced_batch[patch_num]
+        data_batch = torch.reshape(data_batch, (32, config.N_MELS*config.NUMBER_OF_FRAMES_AE))
+        #print(data_batch.shape)
+        #data_batch = data_batch[:,1,:]
         #print(data_batch.shape)
         data_batch = data_batch.to(device)
         optimizer.zero_grad()
@@ -108,28 +118,42 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
         if (batch_number % 50 == 0):
             print(f"Progress: {batch_number}/{len(val_loader)}")
         inputs, target, class_label = data
+        print(f"Inputs Shape: {inputs.shape}")
+        sliced_batch = torch.split(inputs, 5, dim=3)
+        sliced_batch = sliced_batch[:-1]
+        print(f"len sliced batch: {len(sliced_batch)}")
+        print(f"sliced batch 0: {sliced_batch[0].shape}")
         inputs = inputs.to(device)
         #print(inputs.shape) #torch.Size([1, 1, 128, 88])
-        inputs_patched = patch_batch_ae(inputs, stride=1)
+        #inputs_patched = patch_batch_ae(inputs)
         #print(inputs.shape)
         loss_total_current_spec = 0
         reconstructed_frames = []
-        for i in range(inputs_patched.shape[1]): #iterate through patches
-          input_frames = inputs_patched[:, i, :]
+        for i in range(len(sliced_batch)): #iterate through patches #inputs_patched.shape[1]
+          input_frames = sliced_batch[i]
+          input_frames = torch.reshape(input_frames, (1, config.N_MELS*config.NUMBER_OF_FRAMES_AE))
           #print(input_frames.shape)
           output= model(input_frames) #ith frame gets propagated
-          #print(output.shape) #([1, 640])
+          print(output.shape) #([1, 320])
+          output = torch.reshape(output, (1, 1, config.N_MELS, config.NUMBER_OF_FRAMES_AE))
           reconstructed_frames.append(output)
           #print(index)
           assert input_frames.shape == output.shape
           loss = mse_loss(input_frames, output)
+          #print(class_label)
+          #print(loss)
           loss_total_current_spec += loss.item()
-        reconstructed_spec = torch.cat(reconstructed_frames, dim=0)
-        #print(f"Reconstructed Spec: {reconstrudted_spec.shape}") #torch.Size([84, 640])
+        
+
+        reconstructed_spec = torch.cat(reconstructed_frames, dim=3)
+        print(f"Reconstructed Spec Shape: {reconstructed_spec.shape}")
+        #reconstructed_spec = reconstructed_spec.transpose(2, 1)
+
         inputs = torch.squeeze(inputs)
-        inputs, reconstructed_spec = torch.reshape(inputs, (config.N_MELS, -1)), torch.reshape(reconstructed_spec, (config.N_MELS, -1))
-        print(inputs.shape)
-        print(reconstructed_spec.shape)
+        #assert reconstructed_spec.shape == inputs_patched.shape
+        #inputs, reconstructed_spec = torch.reshape(inputs, (config.N_MELS, -1)), torch.reshape(reconstructed_spec, (config.N_MELS, -1))
+        #print(inputs.shape)
+        #print(reconstructed_spec.shape)
         #assert reconstructed_spec.shape == inputs.shape
         reconstructions.append((inputs, reconstructed_spec))
 

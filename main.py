@@ -2,7 +2,7 @@ from torch import utils
 import config
 from training_setup import TrainingSetup
 import logging
-from utils import plot_all_rocs, convert_to_df, plot_mel_filter_experiment, plot_roc_curve, plot_all_results, plot_error_distribution, plot_and_save_orig_and_recons
+from utils import plot_all_rocs, convert_to_df, plot_loss_func_experiment, plot_mel_filter_experiment, plot_roc_curve, plot_all_results, plot_error_distribution, plot_and_save_orig_and_recons
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -43,8 +43,10 @@ all_model_types = []
 all_setups = []
 all_mel_filters = []
 all_seeds = []
+loss_types = []
 
 number_of_mels = [config.N_MELS]
+loss_functions = ['l2', 'l1']
 
 def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=True):
     global all_roc_scores
@@ -52,6 +54,7 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=Tru
     global all_setups
     global all_mel_filters
     global all_seeds
+    global loss_types
     if plot_roc_and_loss:
         len_scen = len(scenario) if len(scenario) > 1 else 2 #just for indexing, that running only one scenario doesnt break the graphs
         if len_scen > 5:
@@ -60,24 +63,26 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=Tru
         fig_rocs, axes_rocs = plt.subplots(1, len_scen, figsize=(6 * len_scen, 4))
         fig_error_dists, axes_errors = plt.subplots(1, len_scen, figsize=(7 * len_scen, 4))
     for i in range(len(scenario)):
-        for n_mels in number_of_mels:
-            print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type} : Mel Filters: {n_mels}")
-            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes, orig_recons = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=n_mels, model_save=model_save)
+        for loss_func in loss_functions:
+            print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type} : Mel Filters: {number_of_mels[0]} : Loss Function {loss_func}")
+            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes, orig_recons = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=config.N_MELS, model_save=model_save, loss_function=loss_func)
             scores, classes = scores_classes
             print(f"Classes: {classes}")
             all_roc_scores += roc_auc_scores
             all_setups += [scenario[i].setup_name for j in range(len(roc_auc_scores))]
             all_model_types += [str(model_type)[12:] for j in range(len(roc_auc_scores))]
-            all_mel_filters += [n_mels for i in range(len(roc_auc_scores))]
+            all_mel_filters += [config.N_MELS for i in range(len(roc_auc_scores))]
+            loss_types +=[loss_func for i in range(len(roc_auc_scores))]
             all_seeds += [config.RANDOM_SEEDS[j] for j in range(config.NUMBER_REPEAT_EXPERIMENT)]
         
-        plot_and_save_orig_and_recons(orig_recons[50], classes[50])
-        plot_and_save_orig_and_recons(orig_recons[10], classes[10])
-        plot_and_save_orig_and_recons(orig_recons[20], classes[20])
+        plot_and_save_orig_and_recons(orig_recons[49], classes[49], scores[49])
+        plot_and_save_orig_and_recons(orig_recons[10], classes[10], scores[10])
+        #plot_and_save_orig_and_recons(orig_recons[200], classes[200], scores[200])
 
         if plot_roc_and_loss:
             plot_error_distribution(axes_errors[i], scores_classes, scenario[i].setup_name)
             axes_loss[i].set_title(f'Loss of Setup: {scenario[i].setup_name}')
+            print(len(losses))
             losses = convert_to_df(losses)
             sns.lineplot(data=losses, ax=axes_loss[i])
             plot_roc_curve(scenario[i].setup_name, fp_rate, tp_rate, roc, axes_rocs[i])
@@ -120,18 +125,20 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 #bei runs:
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
-train_and_plot([c_scenario_tf], config.MODEL_TYPES.TRANSFORMER, False, model_save=config.SAVE_MODELS)
+train_and_plot([ c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, True, model_save=config.SAVE_MODELS)
 
 #6h
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.IDNN, plot_roc_and_loss=False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=False)
 
-
-results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores, 'mel_filters': all_mel_filters, 'seed' : all_seeds}
+print(loss_types)
+print(all_seeds)
+results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores, 'mel_filters': all_mel_filters, 'seed' : all_seeds, 'loss_funcs': loss_types}
 df = pd.DataFrame(results, columns=results.keys())
 df.to_csv(config.RESULT_DIR + 'all_results' + '.csv', sep=',', encoding='utf-8', header=None)
-plot_mel_filter_experiment(df, axe)
+#plot_mel_filter_experiment(df, axe)
+plot_loss_func_experiment(df, axe)
 #plot_all_results(results, axe)
 fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + '_mel_filters_results.png')
 

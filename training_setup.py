@@ -1,3 +1,4 @@
+
 import datetime
 import math
 from operator import pos
@@ -39,7 +40,7 @@ class TrainingSetup():
     def __str__(self):
         return f'Normal classes: {self.normal_data} Anomalous:{self.anomalous_data}'
 
-    def run(self, model_type, number_of_runs=1, number_mel_bins=config.N_MELS, model_save=True):
+    def run(self, model_type, number_of_runs=1, number_mel_bins=config.N_MELS, loss_function='l2', model_save=True):
       auc_roc_scores = []
       for i in range(number_of_runs):
         current_seed = config.RANDOM_SEEDS[i]
@@ -53,15 +54,14 @@ class TrainingSetup():
         training_start = datetime.datetime.now()
         losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device('cpu') #torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
           transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*2, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
           LEARNING_RATE = 0.00001
           WEIGHT_DECAY = 0.0001
-          #optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY) 
-          optimizer = torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) #AdamW(transformer.parameters(), lr=LEARNING_RATE)
+          optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE) #torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) 
           EPOCHS = config.EPOCHS_TF
           total_steps = len(train_loader) * EPOCHS
           warm_up_steps = math.ceil(total_steps * 0.1)
@@ -70,8 +70,8 @@ class TrainingSetup():
           transformer.to(device)
           transformer.train() #mode
           for epoch in range(1, EPOCHS + 1):
-            losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler)
-            val_anom_scores, val_targets, _, _ = models.transformer.get_anom_scores(transformer, val_loader, device) #batch size in evalution is only one
+            losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler, loss_func=loss_function)
+            val_anom_scores, val_targets, _, _ = models.transformer.get_anom_scores(transformer, val_loader, device, loss_func=loss_function) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50:
@@ -93,6 +93,7 @@ class TrainingSetup():
           LEARNING_RATE = 0.001
           EPOCHS = config.EPOCHS_AE
           INPUT_DIM = number_mel_bins * NUMBER_OF_FRAMES_AE
+          print(f"Input dim: {INPUT_DIM}")
           autoencoder = models.autoencoder.AutoEncoder(input_dim=INPUT_DIM)
           optimizer = torch.optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
           total_steps = len(train_loader) * EPOCHS
@@ -133,10 +134,10 @@ class TrainingSetup():
           idnn.to(device)
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
-            losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
+            #losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
             val_anom_scores, val_targets, _, _ = models.idnn.get_anom_scores(idnn, val_loader, device, mel_bins=number_mel_bins)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
-            losses += losses_epoch
+            #losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best:
               best_model = copy.deepcopy(idnn)
               roc_auc_best = roc_auc
@@ -148,17 +149,17 @@ class TrainingSetup():
           total_training_time = training_finished - training_start
           summary = pms.summary(idnn, torch.ones(BATCH_SIZE, number_mel_bins, NUMBER_OF_FRAMES_IDNN).to(device))
         #evaluation
-        fp_rate, tp_rate, roc_auc, scores_classes, orig_recons = self.evaluate_model(best_model, val_loader, device, model_type, number_mel_bins)
+        fp_rate, tp_rate, roc_auc, scores_classes, orig_recons = self.evaluate_model(best_model, test_loader, device, model_type, number_mel_bins)
         if model_save:
           save_model(self.setup_name + '_' + str(model_type), best_model)
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
         #plot_and_save_loss_curve(self.setup_name, losses)
-        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
+        #save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
       return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes, orig_recons
 
 
-    def evaluate_model(self, best_model, test_loader,device, model_type, mel_bins):
+    def evaluate_model(self, best_model, test_loader, device, model_type, mel_bins):
       #model = load_model(model_name)
       if model_type == MODEL_TYPES.TRANSFORMER:
         test_anom_scores, test_targets, original_class_labels, orig_recons = models.transformer.get_anom_scores(best_model, test_loader, device)

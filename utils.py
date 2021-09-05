@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 import os
 import librosa
+import datetime
 
 from torch.utils import data
 import config
@@ -23,16 +24,18 @@ def load_model(name):
   model = torch.load(config.RESULT_DIR + name)
   return model
 
-def plot_and_save_orig_and_recons(orginial_recons, orig_class):
+def plot_and_save_orig_and_recons(orginial_recons, orig_class, ad_score):
   original, recons = orginial_recons
   #torch.set_printoptions(threshold=20000)
+  print("\nOriginal")
   print(original)
+  print("\nReconstruction")
   print(recons)
   original, recons = original.cpu(), recons.cpu()
   fig, axes = plt.subplots(2, 1)
   plot_spectrogram(original, fig, axes[0], title='Original:' + orig_class)
-  plot_spectrogram(recons, fig, axes[1], title='Reconstruction:' + orig_class)
-  fig.savefig(config.RESULT_DIR + 'orig_recons_plot.png')
+  plot_spectrogram(recons, fig, axes[1], title='Reconstruction:' + orig_class + str(ad_score))
+  fig.savefig(config.RESULT_DIR + str(datetime.datetime.now()) + '_orig_recons_plot.png')
   #plt.show()
 
 def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto', xmax=None):
@@ -81,6 +84,9 @@ def plot_all_rocs(title, roc_aucs, axe):
 
 def plot_all_results(df, axe):
   sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='Normal_Data', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
+
+def plot_loss_func_experiment(df, axe):
+  sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='loss_funcs', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
 
 def plot_mel_filter_experiment(df, axe):
   sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='mel_filters', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
