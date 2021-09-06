@@ -32,7 +32,7 @@ def plot_and_save_orig_and_recons(orginial_recons, orig_class, ad_score):
   print("\nReconstruction")
   print(recons)
   original, recons = original.cpu(), recons.cpu()
-  fig, axes = plt.subplots(2, 1)
+  fig, axes = plt.subplots(2, 1, figsize=(4, 6))
   plot_spectrogram(original, fig, axes[0], title='Original:' + orig_class)
   plot_spectrogram(recons, fig, axes[1], title='Reconstruction:' + orig_class + str(ad_score))
   fig.savefig(config.RESULT_DIR + str(datetime.datetime.now()) + '_orig_recons_plot.png')

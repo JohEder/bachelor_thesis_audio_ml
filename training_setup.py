@@ -54,7 +54,7 @@ class TrainingSetup():
         training_start = datetime.datetime.now()
         losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
-        device = torch.device('cpu') #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
@@ -262,7 +262,7 @@ class TrainingSetup():
         val_data = IdmtTrafficDataSet(concatenated_val_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, mel_bins, on_the_fly=True)
         test_data = IdmtTrafficDataSet(concatenated_test_data, SAMPLE_RATE, self.normal_data,self.anomalous_data,row, mel_bins, on_the_fly=True)
 
-        train_loader = torch.utils.data.DataLoader(normal_train_data, batch_size=BATCH_SIZE, shuffle=True)
+        train_loader = torch.utils.data.DataLoader(normal_train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=BATCH_SIZE_VAL, shuffle=True)
         test_loader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE_VAL, shuffle=False)
 
@@ -276,6 +276,8 @@ class TrainingSetup():
       else:
         remainder = len(data) % batch_size
         print(str(remainder + 1) + " samples discarded.")
+        print(len(data.iloc[remainder + 1:,:]))
+        #assert len(data.iloc[remainder + 1:,:]) % batch_size == 0
         return data.iloc[remainder + 1:,:]
 
 

@@ -21,7 +21,7 @@ NUMBER_OF_FRAMES_IDNN = 5
 
 Total_steps = 1000
 EPOCHS_TF = 30
-EPOCHS_AE = 1
+EPOCHS_AE = 50
 EPOCHS_IDNN = 1
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"

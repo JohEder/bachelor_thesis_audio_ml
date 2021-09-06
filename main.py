@@ -46,7 +46,7 @@ all_seeds = []
 loss_types = []
 
 number_of_mels = [config.N_MELS]
-loss_functions = ['l2', 'l1']
+loss_functions = ['l2']
 
 def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=True):
     global all_roc_scores
@@ -75,9 +75,9 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=Tru
             loss_types +=[loss_func for i in range(len(roc_auc_scores))]
             all_seeds += [config.RANDOM_SEEDS[j] for j in range(config.NUMBER_REPEAT_EXPERIMENT)]
         
-        plot_and_save_orig_and_recons(orig_recons[49], classes[49], scores[49])
-        plot_and_save_orig_and_recons(orig_recons[10], classes[10], scores[10])
-        #plot_and_save_orig_and_recons(orig_recons[200], classes[200], scores[200])
+        plot_and_save_orig_and_recons(orig_recons[40], classes[40], scores[40])
+        plot_and_save_orig_and_recons(orig_recons[11], classes[11], scores[11])
+        plot_and_save_orig_and_recons(orig_recons[200], classes[200], scores[200])
 
         if plot_roc_and_loss:
             plot_error_distribution(axes_errors[i], scores_classes, scenario[i].setup_name)
@@ -138,8 +138,8 @@ results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC'
 df = pd.DataFrame(results, columns=results.keys())
 df.to_csv(config.RESULT_DIR + 'all_results' + '.csv', sep=',', encoding='utf-8', header=None)
 #plot_mel_filter_experiment(df, axe)
-plot_loss_func_experiment(df, axe)
-#plot_all_results(results, axe)
+#plot_loss_func_experiment(df, axe)
+plot_all_results(results, axe)
 fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + '_mel_filters_results.png')
 
 
