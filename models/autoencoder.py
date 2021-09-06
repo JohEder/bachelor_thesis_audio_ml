@@ -120,7 +120,7 @@ def get_anom_scores(model, val_loader, device, number_of_batches_eval=None):
             print(f"Progress: {batch_number}/{len(val_loader)}")
         inputs, target, class_label = data
         #print(f"Inputs Shape: {inputs.shape}")
-        sliced_batch = torch.split(inputs, 5, dim=3)
+        sliced_batch = torch.split(inputs, config.NUMBER_OF_FRAMES_AE, dim=3)
         sliced_batch = sliced_batch[:-1]
         #print(f"len sliced batch: {len(sliced_batch)}")
         #print(f"sliced batch 0: {sliced_batch[0].shape}")
