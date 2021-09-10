@@ -14,7 +14,7 @@ import models.transformer
 from models.transformer import TransformerModel
 from torch.nn.modules import module
 import config
-from config import AUDIO_DIR, NUMBER_OF_FRAMES_AE, NUMBER_OF_FRAMES_IDNN, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
+from config import AUDIO_DIR, NUMBER_OF_FRAMES_AE, NUMBER_OF_FRAMES_IDNN, N_MELS, all_annotations_txt, BATCH_SIZE, SAMPLE_RATE, BATCH_SIZE_VAL, MODEL_TYPES, EMBEDDING_SIZE, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, NUMBER_OF_FRAMES
 from import_idmt_traffic_dataset import *
 import pandas as pd
 from datasets.idmt_traffic import *
@@ -54,11 +54,11 @@ class TrainingSetup():
         training_start = datetime.datetime.now()
         losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device('cpu') #torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
-          transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*2, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
+          transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*config.NUMBER_OF_FRAMES, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
           LEARNING_RATE = 0.00001
           WEIGHT_DECAY = 0.0001
           optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE) #torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) 
@@ -86,7 +86,7 @@ class TrainingSetup():
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
-          summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 22, 256).to(device))
+          #summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 43, config.N_MELS*2).to(device))
         elif model_type == MODEL_TYPES.AUTOENCODER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #print(next(iter(train_loader)).shape)

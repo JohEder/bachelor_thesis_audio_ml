@@ -12,7 +12,7 @@ class TransformerModel(nn.Module):
   def __init__(self, d_model, input_dim, n_heads, dim_feedforward, n_encoder_layers, dropout=0.5):
     super(TransformerModel, self).__init__()
     self.pos_encoder = PositionalEncoding(d_model, dropout)
-    encoder_layers = TransformerEncoderLayer(d_model=d_model, nhead=n_heads, dim_feedforward=dim_feedforward, dropout=dropout)
+    encoder_layers = TransformerEncoderLayer(d_model=d_model, nhead=n_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True)
     self.transformer_encoder = TransformerEncoder(encoder_layers, n_encoder_layers)
     self.patch_embedding = PatchEmbedding(input_dim, d_model)
     self.input_dim = input_dim
@@ -56,14 +56,27 @@ class TransformerModel(nn.Module):
     input_masked = []
     masks_index_list = []
     for i in range(number_of_specs):
-      mask_idx = specific_mask_idx if specific_mask_idx != None else random.randint(0, input.shape[1]-1)
-
-      input[i, mask_idx, :] = self.mask_token
-      assert torch.equal(input[i, mask_idx, :], self.mask_token)
+      if specific_mask_idx != None:
+        input[i, specific_mask_idx, :] = self.mask_token
+        masks_index_list.append([specific_mask_idx])
+      else:
+        number_of_tokens_tobe_masked = math.ceil(input.shape[1] * config.MASK_RATIO)
+        #print(f"Number of tokens to be masked: {number_of_tokens_tobe_masked}")
+        input, mask_idx_for_spec_list = self._mask_token_training(input,number_of_tokens_tobe_masked,i)
+        masks_index_list.append(mask_idx_for_spec_list)
+      #assert torch.equal(input[i, mask_idx, :], self.mask_token)
       input_masked.append(input[i,:,:]) #maybe just tuples (current_spec_masked, mask_idx)
-      masks_index_list.append(torch.as_tensor(mask_idx))
+    input_masked, mask_idxs = torch.stack(input_masked), masks_index_list
+    assert input.shape == input_masked.shape
+    return input_masked, mask_idxs
 
-    return torch.stack(input_masked), torch.stack(masks_index_list)
+  def _mask_token_training(self, input, number_of_tokens, spec_number):
+    mask_idxs_for_spec = [random.randint(0, input.shape[1]-1) for i in range(number_of_tokens)]
+
+    for i in range(len(mask_idxs_for_spec)):
+      input[spec_number, mask_idxs_for_spec[i], :] = random.choices([self.mask_token, torch.zeros(self.d_model)], weights=[0.75, 0.25])[0]
+    
+    return input, mask_idxs_for_spec
 
 
 class Decoder(nn.Module):
@@ -138,17 +151,27 @@ def calculate_l1_loss_masked(input_batch, output_batch, mask_idxs):
   loss_per_batch = torch.stack(loss_per_batch, dim=0)
   return loss_per_batch.mean()
 
-def calculate_loss_masked(input_batch, output_batch, mask_idxs, sum_up):
+def calculate_loss_masked(input_batch, output_batch, mask_idxs):
   #print(input_batch.shape)
   loss_per_batch = []
   for i in range(len(mask_idxs)):
-    input_at_masked = input_batch[i, mask_idxs[i], :]
-    output_at_masked = output_batch[i, mask_idxs[i], :]
-    assert input_at_masked.shape == output_at_masked.shape
-    scores = torch.mean((input_at_masked - output_at_masked) ** 2, dim=tuple(range(1, output_at_masked.dim()))) #brauche ich die dimension? ist glaube ich immer 1
-    loss_per_batch.append(scores)
+    loss_for_spec = calculate_loss_masked_one_spec(input_batch, output_batch, i, mask_idxs[i])
+    loss_per_batch.append(loss_for_spec)
   loss_per_batch = torch.stack(loss_per_batch, dim=0)
   return loss_per_batch.mean()
+
+
+def calculate_loss_masked_one_spec(input_batch, output_batch, spec_number, spec_list):
+  loss_per_spec = []
+  for i in range(len(spec_list)):
+    input_at_masked = input_batch[spec_number, spec_list[i], :]
+    output_at_masked = output_batch[spec_number, spec_list[i], :]
+    assert input_at_masked.shape == output_at_masked.shape
+    mse = nn.MSELoss(reduction='mean')
+    scores = mse(output_at_masked, input_at_masked)
+    loss_per_spec.append(scores)
+  loss_per_spec = torch.stack(loss_per_spec, dim=0)
+  return loss_per_spec.sum()
 
 
 def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, loss_func='l2'):
@@ -156,14 +179,28 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, l
   model.train()
   epoch_loss = []
   for batch_index, (data_batch, _, _) in enumerate(train_loader):
-    data_batch = patch_batch(data_batch, NUMBER_OF_FRAMES)
-    data_batch = data_batch.to(device)
+    #data_batch = patch_batch(data_batch, NUMBER_OF_FRAMES)
+    #print(f"Data Batch shape: {data_batch.shape}") #(32, 1, 64, 87)
+    data_batch_patched = torch.split(data_batch, config.NUMBER_OF_FRAMES, dim=3)
+    data_batch_patched = data_batch_patched[:-1]
+    number_of_patches = len(data_batch_patched)
+    #print(f"len sliced batch: {number_of_patches}") #43
+    #print(f"sliced batch 0: {data_batch_patched[0].shape}") #(32, 1, 64, 2)
+    data_batch_patched = torch.stack(data_batch_patched, dim=1)
+    #print(f"Stacked: {data_batch_patched.shape}") #(32, 43, 1, 64, 2)
+    data_batch_patched = torch.reshape(data_batch_patched, (config.BATCH_SIZE, number_of_patches, config.N_MELS * config.NUMBER_OF_FRAMES))
+    #print(f"Reshaped: {data_batch_patched.shape}") #(32, 43, 128)
+    data_batch_patched = data_batch_patched.to(device)
     optimizer.zero_grad()
-    output, mask_idxs = model(data_batch)
+    output, mask_idxs = model(data_batch_patched) #Mask indexes is a list of lists: Each spectrogram has a list of mask indexes
+    #print(f"Mask indexes: {mask_idxs}")
+    #print(f"Output: {output.shape}")
+
+    assert output.shape == data_batch_patched.shape
     if loss_func == 'l2':
-      loss = calculate_loss_masked(data_batch, output, mask_idxs, True)
+      loss = calculate_loss_masked(data_batch_patched, output, mask_idxs)
     else:
-      loss = calculate_l1_loss_masked(data_batch, output, mask_idxs)
+      loss = calculate_l1_loss_masked(data_batch_patched, output, mask_idxs)
     #loss_total = calculate_loss_total(data_batch, output)
     #print(f"Loss patches: {loss}\nLoss total: {loss_total}")
     epoch_loss.append(loss.item())
@@ -175,93 +212,6 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, l
     if batch_index % 30 == 0:
       print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_index * len(data_batch), len(train_loader.dataset),100. * batch_index / len(train_loader), loss.item(), current_lr))
   return epoch_loss
-
-
-def train_epoch_new(model, train_loader, optimizer, epoch, device, scheduler=None):
-  print(f"Starting Epoch {epoch}")
-  model.train()
-  epoch_loss = []
-  for batch_index, (data_batch, _, _) in enumerate(train_loader):
-    print(data_batch.shape)
-    data_batch = torch.squeeze(data_batch)
-    print(data_batch.shape)
-    data_batch = torch.stack(torch.split(data_batch, NUMBER_OF_FRAMES, dim=2))
-    print(data_batch.shape)
-    data_batch = torch.reshape(data_batch, (32, 44, 128, 2))
-    print(data_batch.shape)
-    data_batch = data_batch.to(device)
-
-    optimizer.zero_grad()
-    output, mask_idxs = model(data_batch)
-    loss = calculate_loss_masked(data_batch, output, mask_idxs, True)
-    #loss_total = calculate_loss_total(data_batch, output)
-    #print(f"Loss patches: {loss}\nLoss total: {loss_total}")
-    epoch_loss.append(loss.item())
-    loss.backward()
-    #torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-    optimizer.step()
-    current_lr = scheduler.get_last_lr()
-    scheduler.step()
-    if batch_index % 30 == 0:
-      print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_index * len(data_batch), len(train_loader.dataset),100. * batch_index / len(train_loader), loss.item(), current_lr))
-  return epoch_loss
-
-def get_anom_scores_new(model, data_loader, device, number_of_batches_eval=None):
-  #currently the batch size for evaluation needs to be 1
-  total_anom_scores = []
-  total_targets = []
-  original_class_labels = []
-  reconstructions = []
-  model.to(device)
-  model.eval()
-  with torch.no_grad():
-    for batch_number, data in enumerate(data_loader, 0):
-      if (number_of_batches_eval != None) and (batch_number > number_of_batches_eval):
-        break
-      if (batch_number % 30 == 0):
-        print(f"Progress: {batch_number}/{len(data_loader)}")
-      input, target, class_label = data
-      input = input.to(device)
-      #print(f"inputs shape: {input.shape}")
-      #print(inputs.shape)
-      patched_input = torch.stack(torch.split(input, NUMBER_OF_FRAMES))
-      #print(patched_input.shape) #(n_spectograms, n_patches, features)
-      #every patch needs to be masked once and the masked loss calculated added and divided by number of patches
-      loss_total_current_spec = 0
-      reconstructed_patches = []
-      original_inputs = []
-      for i in range(patched_input.shape[0]): #iterate through patches
-        output, index = model(patched_input, i) #patch i gets masked
-        assert index == i
-        #print(f"Output Shape: {output.shape}") #(1, 22, 32)
-        output_at_masked = output[i, :, :]
-        #input_at_masked = torch.squeeze(patched_input[0, i, :])
-        #print(output_at_masked.shape) #(1,1,32)
-        #output_at_masked = torch.squeeze(output_at_masked)
-        reconstructed_patches.append(output_at_masked)
-        #original_inputs.append(input_at_masked)
-        loss = calculate_loss_masked(patched_input, output, index, True) # last argument (sum) does not make a difference for batch size 1
-        loss_total_current_spec += loss.item()
-      
-      loss_total_current_spec /= patched_input.shape[1] #divide by number of patches
-      #print(loss_total_current_spec)
-      total_anom_scores.append(loss_total_current_spec) #coverting to numpy for processing with scikit
-      total_targets.append(target)
-      original_class_labels.append(class_label[0])
-      #print(len(reconstructed_patches))
-      #print(reconstructed_patches[0].shape)
-      reconstruction = torch.stack(reconstructed_patches)
-      print(reconstruction.shape)
-      reconstruction = reconstruction.reshape(1, 1, 128, 88)
-      reconstruction = torch.reshape(reconstruction, (config.N_MELS, -1))
-      #orig_input = torch.reshape(torch.stack(original_inputs), (config.N_MELS, -1))
-      input = torch.squeeze(input)
-      reconstructions.append((input, reconstruction))
-      #print(input.shape)
-      #print(reconstruction.shape)
-      assert input.shape == reconstruction.shape
-    return total_anom_scores, total_targets, original_class_labels, reconstructions
-
 
 
 def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, loss_func='l2'):
@@ -280,60 +230,63 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
       if (batch_number % 30 == 0):
         print(f"Progress: {batch_number}/{len(data_loader)}")
       input, target, class_label = data
-      input = input.to(device)
-      #print(f"inputs shape: {input.shape}")
-      #print(inputs.shape)
-      patched_input = patch_batch(input, NUMBER_OF_FRAMES)
+      #print(f"Data Batch shape: {input.shape}") #(1, 1, 64, 87)
+      input_patched = torch.split(input, config.NUMBER_OF_FRAMES, dim=3)
+      input_patched = input_patched[:-1]
+      number_of_patches = len(input_patched)
+      #print(f"len sliced batch: {number_of_patches}") #43
+      #print(f"sliced batch 0: {input_patched[0].shape}") #(1, 1, 64, 2)
+      input_patched = torch.stack(input_patched, dim=1)
+      #print(f"Stacked: {input_patched.shape}") #(1, 43, 1, 64, 2)
+      input_patched = torch.reshape(input_patched, (config.BATCH_SIZE_VAL, number_of_patches, config.N_MELS * config.NUMBER_OF_FRAMES))
+      #print(f"Reshaped: {input_patched.shape}") #(1, 43, 128)
+      input_patched = input_patched.to(device)
+      
       #print(patched_input.shape) #(n_spectograms, n_patches, features)
       #every patch needs to be masked once and the masked loss calculated added and divided by number of patches
       loss_total_current_spec = 0
       reconstructed_patches = []
-      original_inputs = []
-      for i in range(patched_input.shape[1]): #iterate through patches
-        output, index = model(patched_input, i) #patch i gets masked
-        assert index == i
+      for i in range(input_patched.shape[1]): #iterate through patches
+        output, index = model(input_patched, i) #patch i gets masked
+
+        assert index[0][0] == i
         #print(f"Output Shape: {output.shape}")
-        output_at_masked = output[0, i, :]
+        input_at_masked = input_patched[0, i, :]
+        output_at_masked = output[0, i, :] #batch size 1
         #print(output_at_masked)
-        input_at_masked = torch.squeeze(patched_input[0, i, :])
         #print(output_at_masked.shape)
-        output_at_masked = torch.squeeze(output_at_masked)
-        reconstructed_patches.append(output_at_masked)
-        original_inputs.append(input_at_masked)
         if loss_func == 'l2':
-          loss = calculate_loss_masked(patched_input, output, index, True) # last argument (sum) does not make a difference for batch size 1
+          loss = calculate_loss_masked(input_patched, output, index) # last argument (sum) does not make a difference for batch size 1
         else:
-          loss = calculate_l1_loss_masked(patched_input, output, index)
+          loss = calculate_l1_loss_masked(input_patched, output, index)
         loss_total_current_spec += loss.item()
+
+        output_at_masked = torch.reshape(output_at_masked, (1, 1, config.N_MELS, config.NUMBER_OF_FRAMES))
+        reconstructed_patches.append(output_at_masked)
       
       #print(reconstructed_patches[3])
       #print(reconstructed_patches[20])
       #assert torch.equal(reconstructed_patches[6], reconstructed_patches[20])
       #print(loss_total_current_spec)
 
-      loss_total_current_spec /= patched_input.shape[1] #divide by number of patches
+      #loss_total_current_spec /= input_patched.shape[1] #divide by number of patches
       #print(loss_total_current_spec)
       total_anom_scores.append(loss_total_current_spec) #coverting to numpy for processing with scikit
       total_targets.append(target)
       original_class_labels.append(class_label[0])
       #print(len(reconstructed_patches))
       #print(reconstructed_patches[0].shape)
-      reconstruction = torch.stack(reconstructed_patches)
+      reconstruction = torch.cat(reconstructed_patches, dim=3)
+      #print(f"Reconstruction: {reconstruction.shape}")
+      #reconstruction = torch.reshape(reconstruction, (1, 1, config.N_MELS, -1))
       #print(reconstruction.shape)
-      reconstruction = torch.reshape(reconstruction, (1, config.N_MELS//2, -1))
-      #print(reconstruction.shape)
-      #print(patched_input.shape)
-      #assert reconstruction.shape == patched_input.shape
-      reconstruction = reconstruction.transpose(2,1)
-      #print(reconstruction.shape)
-      reconstruction = reconstruction.reshape(1, 1, config.N_MELS, -1)
+
       input, reconstruction = torch.squeeze(input), torch.squeeze(reconstruction)
-      reconstruction = torch.reshape(reconstruction, (config.N_MELS, -1))
       reconstructions.append((input, reconstruction))
       #print(input.shape)
       #print(reconstruction.shape)
       #assert input.shape == reconstruction.shape
-    assert (not torch.equal(reconstruction[0], reconstruction[2]))
+    #assert (not torch.equal(reconstruction[0], reconstruction[2]))
     return total_anom_scores, total_targets, original_class_labels, reconstructions
 
 

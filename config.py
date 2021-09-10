@@ -18,9 +18,11 @@ NUMBER_OF_FRAMES = 2
 NUMBER_OF_FRAMES_AE = 5
 NUMBER_OF_FRAMES_IDNN = 5
 
+MASK_RATIO = 0.15
+
 
 Total_steps = 1000
-EPOCHS_TF = 30
+EPOCHS_TF = 3
 EPOCHS_AE = 50
 EPOCHS_IDNN = 1
 
@@ -36,7 +38,7 @@ BATCH_SIZE_VAL = 1
 RANDOM_SEEDS = [42, 9, 17, 4, 7, 32, 29, 20, 34, 12, 35, 89, 36, 67, 89,68]
 
 #params for transformer model architecture
-EMBEDDING_SIZE = 128
+EMBEDDING_SIZE = 64
 N_HEADS = 4
 N_ENCODER_LAYERS = 4
 DROPOUT = 0.0 #is dropout needed for AD? used in most Transformer papers
