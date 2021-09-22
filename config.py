@@ -22,8 +22,8 @@ MASK_RATIO = 0.15
 
 
 Total_steps = 1000
-EPOCHS_TF = 3
-EPOCHS_AE = 50
+EPOCHS_TF = 100
+EPOCHS_AE = 5
 EPOCHS_IDNN = 1
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"

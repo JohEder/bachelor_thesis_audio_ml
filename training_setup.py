@@ -54,7 +54,7 @@ class TrainingSetup():
         training_start = datetime.datetime.now()
         losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
-        device = torch.device('cpu') #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if model_type == MODEL_TYPES.TRANSFORMER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training

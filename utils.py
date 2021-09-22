@@ -38,7 +38,7 @@ def plot_and_save_orig_and_recons(orginial_recons, orig_class, ad_score):
   fig.savefig(config.RESULT_DIR + str(datetime.datetime.now()) + '_orig_recons_plot.png')
   #plt.show()
 
-def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto', xmax=None):
+def plot_spectrogram(spec, fig, axs, title=None, ylabel='Mel-band', aspect='auto', xmax=None):
   axs.set_title(title or 'Spectrogram (db)')
   axs.set_ylabel(ylabel)
   axs.set_xlabel('frame')
@@ -46,6 +46,7 @@ def plot_spectrogram(spec, fig, axs, title=None, ylabel='freq_bin', aspect='auto
   if xmax:
     axs.set_xlim((0, xmax))
   fig.colorbar(im, ax=axs)
+  return fig, axs
 
 def plot_roc_curve(title, fp_rate, tp_rate, roc_auc, axe):
   axe.plot(fp_rate, tp_rate, color='blue', label=f"ROC_AUC ={roc_auc}")

@@ -125,12 +125,13 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 #bei runs:
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
-train_and_plot([ c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, True, model_save=config.SAVE_MODELS)
+train_and_plot([ c_scenario_tf], config.MODEL_TYPES.TRANSFORMER, True, model_save=config.SAVE_MODELS)
 
 #6h
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.IDNN, plot_roc_and_loss=False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=False)
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=False)
+
 
 print(loss_types)
 print(all_seeds)
@@ -140,7 +141,7 @@ df.to_csv(config.RESULT_DIR + 'all_results' + '.csv', sep=',', encoding='utf-8',
 #plot_mel_filter_experiment(df, axe)
 #plot_loss_func_experiment(df, axe)
 plot_all_results(results, axe)
-fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + '_mel_filters_results.png')
+fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + 'all_results.png')
 
 
 end_time = datetime.datetime.now()
