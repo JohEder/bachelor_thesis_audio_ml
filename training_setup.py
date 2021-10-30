@@ -59,7 +59,7 @@ class TrainingSetup():
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
           transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*config.NUMBER_OF_FRAMES, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
-          LEARNING_RATE = 0.00001
+          LEARNING_RATE = 0.0001
           WEIGHT_DECAY = 0.0001
           optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE) #torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) 
           EPOCHS = config.EPOCHS_TF
@@ -86,7 +86,7 @@ class TrainingSetup():
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
-          #summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 43, config.N_MELS*2).to(device))
+          summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 43, config.N_MELS*2).to(device))
         elif model_type == MODEL_TYPES.AUTOENCODER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #print(next(iter(train_loader)).shape)
@@ -134,10 +134,10 @@ class TrainingSetup():
           idnn.to(device)
           idnn.train()
           for epoch in range(1, EPOCHS + 1):
-            #losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
+            losses_epoch = models.idnn.train_epoch(idnn, train_loader, optimizer, epoch, device)
             val_anom_scores, val_targets, _, _ = models.idnn.get_anom_scores(idnn, val_loader, device, mel_bins=number_mel_bins)
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
-            #losses += losses_epoch
+            losses += losses_epoch
             if len(val_loader) > 50 and roc_auc > roc_auc_best:
               best_model = copy.deepcopy(idnn)
               roc_auc_best = roc_auc
@@ -155,7 +155,7 @@ class TrainingSetup():
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
         #plot_and_save_loss_curve(self.setup_name, losses)
-        #save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
+        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
       return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes, orig_recons
 
 

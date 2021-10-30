@@ -36,6 +36,7 @@ velocity_setup_70_30 = TrainingSetup(['70'], ['30'], config.SETUP_TYPES.VELOCITY
 velocity_setup_30 = TrainingSetup(['50'], ['30'], config.SETUP_TYPES.VELOCITY)
 velocity_setup_70 = TrainingSetup(['50'], ['70'], config.SETUP_TYPES.VELOCITY)
 velocity_setup_both = TrainingSetup(['50'], ['30', '70'], config.SETUP_TYPES.VELOCITY)
+velocity_setups_30_both = TrainingSetup(['30'], ['50', '70'], config.SETUP_TYPES.VELOCITY)
 road_conditions_setups = TrainingSetup(['D'], ['W'], config.SETUP_TYPES.WEATHER)
 
 all_roc_scores = []
@@ -75,9 +76,9 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=Tru
             loss_types +=[loss_func for i in range(len(roc_auc_scores))]
             all_seeds += [config.RANDOM_SEEDS[j] for j in range(config.NUMBER_REPEAT_EXPERIMENT)]
         
-        plot_and_save_orig_and_recons(orig_recons[40], classes[40], scores[40])
-        plot_and_save_orig_and_recons(orig_recons[11], classes[11], scores[11])
-        plot_and_save_orig_and_recons(orig_recons[200], classes[200], scores[200])
+        #plot_and_save_orig_and_recons(orig_recons[4], classes[4], scores[4])
+        #plot_and_save_orig_and_recons(orig_recons[111], classes[111], scores[111])
+        #plot_and_save_orig_and_recons(orig_recons[200], classes[200], scores[200])
 
         if plot_roc_and_loss:
             plot_error_distribution(axes_errors[i], scores_classes, scenario[i].setup_name)
@@ -104,10 +105,10 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 #train_and_plot([none_scenario_tf], config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True, model_save=False)
 
 #Velocities
-#1h 50 minutes
-#train_and_plot([velocity_setup_70_30, velocity_setup_30], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
-#train_and_plot([velocity_setup_70_30, velocity_setup_30], model_type=config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=True)
-#train_and_plot([velocity_setup_70_30, velocity_setup_30], model_type=config.MODEL_TYPES.IDNN, plot_roc_and_loss=True)
+#10 runs each, 30 ep, 15 hours in total
+train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
+train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=True)
+train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.IDNN, plot_roc_and_loss=True)
 
 #Vehicles
 #~3 hours
@@ -125,7 +126,7 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 #bei runs:
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
-train_and_plot([ c_scenario_tf], config.MODEL_TYPES.TRANSFORMER, True, model_save=config.SAVE_MODELS)
+#train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, True, model_save=config.SAVE_MODELS)
 
 #6h
 #train_and_plot([velocity_setup_70_30], config.MODEL_TYPES.IDNN, plot_roc_and_loss=False)

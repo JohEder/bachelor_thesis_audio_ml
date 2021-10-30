@@ -54,7 +54,7 @@ class IdmtTrafficDataSet(Dataset):
             signal = self.audio_transformation(signal) #(1, 16000) -> torch.Size([1, 64, 63])
             #print(signal.shape) #(1, 64, 87)
             #signal = self.min_max_normalize(signal, 1, 0)
-            #signal = self.normalize(signal)
+            signal = self.normalize(signal)
             #signal = self._normalize_clipping(signal)
             #print(signal)
             #signal = self.image_transformation(signal)
@@ -63,7 +63,7 @@ class IdmtTrafficDataSet(Dataset):
             #signal = self.min_max_normalize(signal, 1, 0)
             #print(signal.shape)
             #signal = self.spec_to_image(signal)
-            signal = self.normalize_mean(signal)
+            #signal = self.normalize_mean(signal)
             #print(f"Max: {signal.max()}, Min: {signal.min()}")
 
         else:

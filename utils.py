@@ -101,8 +101,12 @@ def convert_to_df(losses):
 def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps="", mel_bins=config.N_MELS):
   if model_type == config.MODEL_TYPES.TRANSFORMER:
     with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
-      f.write(f"Model Name: {model_name}\n" +
+      try:
+        f.write(f"Model Name: {model_name}\n" +
           f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}, Optimizer: {optimizer}, Weight Decay: {weight_decay} Total Steps: {total_steps}, Warm up Steps: {warm_up_steps}\n" +
           f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {mel_bins}\n" + 
           f"NUMBER_OF_FRAMES: {config.NUMBER_OF_FRAMES}, EMBEDDING_SIZE = {config.EMBEDDING_SIZE}, N_HEADS = {config.N_HEADS}, N_ENCODER_LAYERS = {config.N_ENCODER_LAYERS}, DROPOUT = {config.DROPOUT}, DIM_FEED_FORWARD = {config.DIM_FEED_FORWARD}\n"+
           f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}  \n\n {summary}")
+      except:
+        f.write(f"{summary}")
+        print('An error occured while saving the hyper parameters')

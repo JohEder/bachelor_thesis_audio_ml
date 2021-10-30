@@ -17,7 +17,7 @@ class TransformerModel(nn.Module):
     self.patch_embedding = PatchEmbedding(input_dim, d_model)
     self.input_dim = input_dim
     self.d_model = d_model
-    self.decoder = Decoder(d_model, input_dim)
+    self.decoder = Decoder(d_model, 43*128) #43*128
 
     self.mask_token = nn.Parameter(torch.randn(d_model, requires_grad=True))
 
@@ -32,22 +32,35 @@ class TransformerModel(nn.Module):
   def forward(self, input, mask_index=None):
     #print("Input")
     #print(input)
-    embedded = self.patch_embedding(input) #* math.sqrt(self.input_dim) #is scaling necessary? yes, otherwise values are incredibly small
+    embedded = self.patch_embedding(input)
     #print("Embedded")
     #print(embedded)
     embedded_masked, mask_idxs = self.mask_embedded_tokens(embedded, mask_index)
     #print("Embedded masked")
     #print(embedded_masked[0, mask_idxs[0], :])
-    pos_encoded_embedded = self.pos_encoder(embedded_masked)
+    pos_encoded_embedded = self.pos_encoder(embedded_masked * math.sqrt(self.d_model))
     #print("Pos encoded")
     #print(pos_encoded_embedded[0, mask_idxs[0], :])
     transformer_out = self.transformer_encoder(pos_encoded_embedded)
     #print("transformer out")
     #print(transformer_out[0, mask_idxs[0], :])
-    output = self.decoder(transformer_out)
+    #masked_part = transformer_out[:, mask_idxs[], :]
+    masked_part = self.get_masked_frames(transformer_out, mask_idxs)
+    #avg = torch.mean(transformer_out, dim=2, keepdim=True)
+    output = self.decoder(masked_part)
     #print("Output")
     #print(output)
     return output, mask_idxs
+  
+  def get_masked_frames(self, input, mask_idxs):
+    #print(f"Input shape {input.shape}")
+    masked_frames = []
+    for i in range(len(mask_idxs)):
+      current_masked = input[i, mask_idxs[i], :]
+      masked_frames.append(current_masked)
+    masked_frames = torch.stack(masked_frames, dim=0)
+    #print(f"Masked frames shape: {masked_frames.shape}")
+    return masked_frames
 
   def mask_embedded_tokens(self, input, specific_mask_idx=None):
     if specific_mask_idx != None:
@@ -60,7 +73,7 @@ class TransformerModel(nn.Module):
         input[i, specific_mask_idx, :] = self.mask_token
         masks_index_list.append([specific_mask_idx])
       else:
-        number_of_tokens_tobe_masked = math.ceil(input.shape[1] * config.MASK_RATIO)
+        number_of_tokens_tobe_masked = 1 #math.ceil(input.shape[1] * config.MASK_RATIO)
         #print(f"Number of tokens to be masked: {number_of_tokens_tobe_masked}")
         input, mask_idx_for_spec_list = self._mask_token_training(input,number_of_tokens_tobe_masked,i)
         masks_index_list.append(mask_idx_for_spec_list)
@@ -74,7 +87,7 @@ class TransformerModel(nn.Module):
     mask_idxs_for_spec = [random.randint(0, input.shape[1]-1) for i in range(number_of_tokens)]
 
     for i in range(len(mask_idxs_for_spec)):
-      input[spec_number, mask_idxs_for_spec[i], :] = random.choices([self.mask_token, torch.zeros(self.d_model)], weights=[0.75, 0.25])[0]
+      input[spec_number, mask_idxs_for_spec[i], :] = self.mask_token #random.choices([self.mask_token, torch.zeros(self.d_model)], weights=[0.75, 0.25])[0]
     
     return input, mask_idxs_for_spec
 
@@ -84,7 +97,9 @@ class Decoder(nn.Module):
     super(Decoder, self).__init__()
     self.input_dim = transformer_out
     self.mlp = nn.Sequential(
-        nn.Linear(in_features=transformer_out, out_features=transformer_out),  #evtl 2*d_model
+        nn.Linear(in_features=transformer_out, out_features=2*transformer_out),  #evtl 2*d_model
+        nn.GELU(),
+        nn.Linear(in_features=2*transformer_out, out_features=transformer_out),
         nn.GELU(),
         nn.Linear(in_features=transformer_out, out_features=out_put_total),)
     
@@ -194,6 +209,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, l
     optimizer.zero_grad()
     output, mask_idxs = model(data_batch_patched) #Mask indexes is a list of lists: Each spectrogram has a list of mask indexes
     #print(f"Mask indexes: {mask_idxs}")
+    output = torch.reshape(output, (config.BATCH_SIZE, number_of_patches, config.N_MELS*config.NUMBER_OF_FRAMES))
     #print(f"Output: {output.shape}")
 
     assert output.shape == data_batch_patched.shape
@@ -250,11 +266,11 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
         output, index = model(input_patched, i) #patch i gets masked
 
         assert index[0][0] == i
+        output = torch.reshape(output, (1, number_of_patches, config.N_MELS*config.NUMBER_OF_FRAMES))
         #print(f"Output Shape: {output.shape}")
         input_at_masked = input_patched[0, i, :]
         output_at_masked = output[0, i, :] #batch size 1
         #print(output_at_masked)
-        #print(output_at_masked.shape)
         if loss_func == 'l2':
           loss = calculate_loss_masked(input_patched, output, index) # last argument (sum) does not make a difference for batch size 1
         else:
