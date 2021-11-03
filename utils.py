@@ -112,6 +112,29 @@ def save_hyperparams(model_type, model_name, training_time, optimizer, learning_
         f.write(f"{summary}")
         print('An error occured while saving the hyper parameters')
 
+  elif model_type == config.MODEL_TYPES.AUTOENCODER:
+    with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
+      try:
+        f.write(f"Model Name: {model_name}\n" +
+          f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}\n" +
+          f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {mel_bins}\n" + 
+          f"NUMBER_OF_FRAMES: {config.NUMBER_OF_FRAMES_AE}\n"+
+          f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}, Best model in epoch: {best_model_epoch}  \n\n {summary}")
+      except:
+        f.write(f"{summary}")
+        print('An error occured while saving the hyper parameters')
+  elif model_type == config.MODEL_TYPES.AUTOENCODER:
+    with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
+      try:
+        f.write(f"Model Name: {model_name}\n" +
+          f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}\n" +
+          f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {mel_bins}\n" + 
+          f"NUMBER_OF_FRAMES: {config.NUMBER_OF_FRAMES_IDNN}\n"+
+          f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}, Best model in epoch: {best_model_epoch}  \n\n {summary}")
+      except:
+        f.write(f"{summary}")
+        print('An error occured while saving the hyper parameters')
+
 
 
 def plot_waveform(waveform, sample_rate, title="Waveform", name='waveform', xlim=None, ylim=None):
