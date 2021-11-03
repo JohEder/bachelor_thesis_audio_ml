@@ -17,7 +17,7 @@ class TransformerModel(nn.Module):
     self.patch_embedding = PatchEmbedding(input_dim, d_model)
     self.input_dim = input_dim
     self.d_model = d_model
-    self.decoder = Decoder(d_model, 43*128) #43*128
+    self.decoder = Decoder(d_model, 128) #43*128
 
     self.mask_token = nn.Parameter(torch.randn(d_model, requires_grad=True))
 

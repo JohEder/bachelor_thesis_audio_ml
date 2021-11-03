@@ -51,6 +51,7 @@ class TrainingSetup():
         model_name = self.setup_name
         roc_auc_best = -1
         best_model = None
+        epoch_best_model = 0
         training_start = datetime.datetime.now()
         losses = []
         print(f"\nrunning {i + 1}. Run of Setup: {self.normal_data} : {model_type}")
@@ -79,6 +80,7 @@ class TrainingSetup():
                 best_model = copy.deepcopy(transformer)
                 #model_name = save_model(model_name, transformer, epoch)
                 roc_auc_best = roc_auc
+                epoch_best_model = epoch
                 print(f"Model with best validaton in epoch{epoch}")
             else:
               best_model = copy.deepcopy(transformer)
@@ -111,7 +113,8 @@ class TrainingSetup():
                 best_model = copy.deepcopy(autoencoder)
                 #model_name = save_model(model_name, transformer, epoch)
                 roc_auc_best = roc_auc
-                #print(f"saved model with best validaton in epoch{epoch}")
+                epoch_best_model = epoch
+                print(f"saved model with best validaton in epoch{epoch}")
             else:
               best_model = copy.deepcopy(autoencoder)
               roc_auc_best = roc_auc
@@ -141,6 +144,8 @@ class TrainingSetup():
             if len(val_loader) > 50 and roc_auc > roc_auc_best:
               best_model = copy.deepcopy(idnn)
               roc_auc_best = roc_auc
+              epoch_best_model = epoch
+              print(f"saved model with best validaton in epoch{epoch}")
             else: 
               best_model = copy.deepcopy(idnn)
               roc_auc_best = roc_auc
@@ -155,7 +160,7 @@ class TrainingSetup():
         print(f"ROC AUC of Model {model_name} is {roc_auc}!")
         auc_roc_scores.append(roc_auc)
         #plot_and_save_loss_curve(self.setup_name, losses)
-        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
+        save_hyperparams(model_type, model_name, total_training_time, optimizer, LEARNING_RATE, EPOCHS, self.normal_data, self.anomalous_data, roc_auc, summary, epoch_best_model, weight_decay="", total_steps=total_steps, warm_up_steps=warm_up_steps, mel_bins=number_mel_bins)
       return auc_roc_scores, losses, fp_rate, tp_rate, roc_auc, scores_classes, orig_recons
 
 

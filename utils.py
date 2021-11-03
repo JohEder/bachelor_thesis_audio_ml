@@ -33,16 +33,17 @@ def plot_and_save_orig_and_recons(orginial_recons, orig_class, ad_score):
   print(recons)
   original, recons = original.cpu(), recons.cpu()
   fig, axes = plt.subplots(2, 1, figsize=(4, 6))
-  plot_spectrogram(original, fig, axes[0], title='Original:' + orig_class)
-  plot_spectrogram(recons, fig, axes[1], title='Reconstruction:' + orig_class + str(ad_score))
+  plot_spectrogram(original, fig, axes[0], title='Original and Reconstruction of class:' + orig_class + '\nAD Score: '+str(round(ad_score, 2)))
+  plot_spectrogram(recons, fig, axes[1])
   fig.savefig(config.RESULT_DIR + str(datetime.datetime.now()) + '_orig_recons_plot.png')
   #plt.show()
 
 def plot_spectrogram(spec, fig, axs, title=None, ylabel='Mel-band', aspect='auto', xmax=None):
-  axs.set_title(title or 'Spectrogram (db)')
+  if title != None:
+    axs.set_title(title)
   axs.set_ylabel(ylabel)
   axs.set_xlabel('frame')
-  im = axs.imshow(librosa.power_to_db(spec), origin='lower', aspect=aspect)
+  im = axs.imshow(spec, origin='lower', aspect=aspect)
   if xmax:
     axs.set_xlim((0, xmax))
   fig.colorbar(im, ax=axs)
@@ -98,7 +99,7 @@ def convert_to_df(losses):
   losses_df = pd.DataFrame(losses_map, columns=losses_map.keys())
   return losses_df
 
-def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, weight_decay="", total_steps="", warm_up_steps="", mel_bins=config.N_MELS):
+def save_hyperparams(model_type, model_name, training_time, optimizer, learning_rate, epochs, normal_classes, anomalous_classes, roc_auc, summary, best_model_epoch, weight_decay="", total_steps="", warm_up_steps="", mel_bins=config.N_MELS):
   if model_type == config.MODEL_TYPES.TRANSFORMER:
     with open(config.RESULT_DIR + "hyper_params" + model_name + '_' + str(model_type) + ".txt", 'w') as f:
       try:
@@ -106,7 +107,31 @@ def save_hyperparams(model_type, model_name, training_time, optimizer, learning_
           f"Epochs: {epochs}, Training Time: {training_time} Learning Rate: {learning_rate} BatchSize: {config.BATCH_SIZE}, Optimizer: {optimizer}, Weight Decay: {weight_decay} Total Steps: {total_steps}, Warm up Steps: {warm_up_steps}\n" +
           f"SAMPLE_RATE = {config.SAMPLE_RATE}, N_FFT/WINDOW_SIZE = {config.N_FFT}, HOP_LENGTH = {config.HOP_LENGTH}, N_MELS = {mel_bins}\n" + 
           f"NUMBER_OF_FRAMES: {config.NUMBER_OF_FRAMES}, EMBEDDING_SIZE = {config.EMBEDDING_SIZE}, N_HEADS = {config.N_HEADS}, N_ENCODER_LAYERS = {config.N_ENCODER_LAYERS}, DROPOUT = {config.DROPOUT}, DIM_FEED_FORWARD = {config.DIM_FEED_FORWARD}\n"+
-          f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}  \n\n {summary}")
+          f"Normal Classes: {normal_classes}, Anomalous Classes: {anomalous_classes}, ROC_AUC Score: {roc_auc}, Best model in epoch: {best_model_epoch}  \n\n {summary}")
       except:
         f.write(f"{summary}")
         print('An error occured while saving the hyper parameters')
+
+
+
+def plot_waveform(waveform, sample_rate, title="Waveform", name='waveform', xlim=None, ylim=None):
+  waveform = waveform.numpy()
+
+  num_channels, num_frames = waveform.shape
+  time_axis = torch.arange(0, num_frames) / sample_rate
+
+  figure, axes = plt.subplots(num_channels, 1)
+  if num_channels == 1:
+    axes = [axes]
+  for c in range(num_channels):
+    axes[c].plot(time_axis, waveform[c], linewidth=1)
+    axes[c].grid(True)
+    if num_channels > 1:
+      axes[c].set_ylabel(f'Channel {c+1}')
+    if xlim:
+      axes[c].set_xlim(xlim)
+    if ylim:
+      axes[c].set_ylim(ylim)
+  figure.suptitle(title)
+  figure.savefig(config.RESULT_DIR + name)
+  plt.show()
