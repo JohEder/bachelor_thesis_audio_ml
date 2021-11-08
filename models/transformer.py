@@ -9,7 +9,7 @@ from transformers.optimization import get_cosine_schedule_with_warmup, get_linea
 import config
 
 class TransformerModel(nn.Module):
-  def __init__(self, d_model, input_dim, n_heads, dim_feedforward, n_encoder_layers, dropout=0.5):
+  def __init__(self, d_model, input_dim, n_heads, dim_feedforward, n_encoder_layers, dropout=0.5, n_mels=config.N_MELS):
     super(TransformerModel, self).__init__()
     self.pos_encoder = PositionalEncoding(d_model, dropout)
     encoder_layers = TransformerEncoderLayer(d_model=d_model, nhead=n_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True)
@@ -17,7 +17,8 @@ class TransformerModel(nn.Module):
     self.patch_embedding = PatchEmbedding(input_dim, d_model)
     self.input_dim = input_dim
     self.d_model = d_model
-    self.decoder = Decoder(d_model, 43*128) #43*128
+    self.n_mels = n_mels
+    self.decoder = Decoder(d_model, 43*self.n_mels*2) #43*128
 
     self.mask_token = nn.Parameter(torch.randn(d_model, requires_grad=True))
 
@@ -189,7 +190,7 @@ def calculate_loss_masked_one_spec(input_batch, output_batch, spec_number, spec_
   return loss_per_spec.sum()
 
 
-def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, loss_func='l2'):
+def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, loss_func='l2', n_mels=config.N_MELS):
   print(f"Starting Epoch {epoch}")
   model.train()
   epoch_loss = []
@@ -203,13 +204,13 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, l
     #print(f"sliced batch 0: {data_batch_patched[0].shape}") #(32, 1, 64, 2)
     data_batch_patched = torch.stack(data_batch_patched, dim=1)
     #print(f"Stacked: {data_batch_patched.shape}") #(32, 43, 1, 64, 2)
-    data_batch_patched = torch.reshape(data_batch_patched, (config.BATCH_SIZE, number_of_patches, config.N_MELS * config.NUMBER_OF_FRAMES))
+    data_batch_patched = torch.reshape(data_batch_patched, (config.BATCH_SIZE, number_of_patches, n_mels * config.NUMBER_OF_FRAMES))
     #print(f"Reshaped: {data_batch_patched.shape}") #(32, 43, 128)
     data_batch_patched = data_batch_patched.to(device)
     optimizer.zero_grad()
     output, mask_idxs = model(data_batch_patched) #Mask indexes is a list of lists: Each spectrogram has a list of mask indexes
     #print(f"Mask indexes: {mask_idxs}")
-    output = torch.reshape(output, (config.BATCH_SIZE, number_of_patches, config.N_MELS*config.NUMBER_OF_FRAMES))
+    output = torch.reshape(output, (config.BATCH_SIZE, number_of_patches, n_mels*config.NUMBER_OF_FRAMES))
     #print(f"Output: {output.shape}")
 
     assert output.shape == data_batch_patched.shape
@@ -230,7 +231,7 @@ def train_epoch(model, train_loader, optimizer, epoch, device, scheduler=None, l
   return epoch_loss
 
 
-def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, loss_func='l2'):
+def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, loss_func='l2', n_mels=config.N_MELS):
   #currently the batch size for evaluation needs to be 1
   total_anom_scores = []
   total_targets = []
@@ -254,7 +255,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
       #print(f"sliced batch 0: {input_patched[0].shape}") #(1, 1, 64, 2)
       input_patched = torch.stack(input_patched, dim=1)
       #print(f"Stacked: {input_patched.shape}") #(1, 43, 1, 64, 2)
-      input_patched = torch.reshape(input_patched, (config.BATCH_SIZE_VAL, number_of_patches, config.N_MELS * config.NUMBER_OF_FRAMES))
+      input_patched = torch.reshape(input_patched, (config.BATCH_SIZE_VAL, number_of_patches, n_mels * config.NUMBER_OF_FRAMES))
       #print(f"Reshaped: {input_patched.shape}") #(1, 43, 128)
       input_patched = input_patched.to(device)
       
@@ -266,7 +267,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
         output, index = model(input_patched, i) #patch i gets masked
 
         assert index[0][0] == i
-        output = torch.reshape(output, (1, number_of_patches, config.N_MELS*config.NUMBER_OF_FRAMES))
+        output = torch.reshape(output, (1, number_of_patches, n_mels*config.NUMBER_OF_FRAMES))
         #print(f"Output Shape: {output.shape}")
         input_at_masked = input_patched[0, i, :]
         output_at_masked = output[0, i, :] #batch size 1
@@ -277,7 +278,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
           loss = calculate_l1_loss_masked(input_patched, output, index)
         loss_total_current_spec += loss.item()
 
-        output_at_masked = torch.reshape(output_at_masked, (1, 1, config.N_MELS, config.NUMBER_OF_FRAMES))
+        output_at_masked = torch.reshape(output_at_masked, (1, 1, n_mels, config.NUMBER_OF_FRAMES))
         reconstructed_patches.append(output_at_masked)
       
       #print(reconstructed_patches[3])
@@ -294,7 +295,7 @@ def get_anom_scores(model, data_loader, device, number_of_batches_eval=None, los
       #print(reconstructed_patches[0].shape)
       reconstruction = torch.cat(reconstructed_patches, dim=3)
       #print(f"Reconstruction: {reconstruction.shape}")
-      #reconstruction = torch.reshape(reconstruction, (1, 1, config.N_MELS, -1))
+      #reconstruction = torch.reshape(reconstruction, (1, 1, n_mels, -1))
       #print(reconstruction.shape)
 
       input, reconstruction = torch.squeeze(input), torch.squeeze(reconstruction)

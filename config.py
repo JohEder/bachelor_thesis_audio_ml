@@ -6,7 +6,7 @@ CLASSES = ['None','C','T', 'M', 'B'] #Background Noise, Car, Truck, Motorcycle, 
 MODEL_TYPES = Enum("MODEL_TYPES", ["TRANSFORMER", "AUTOENCODER", "IDNN"])
 SETUP_TYPES = Enum("SETUP_TYPES", ['VEHICLES', 'WEATHER', 'VELOCITY'])
 
-NUMBER_REPEAT_EXPERIMENT = 10
+NUMBER_REPEAT_EXPERIMENT = 5
 SAVE_MODELS = True
 
 #params for mel spectrogram
@@ -22,9 +22,9 @@ NUMBER_OF_FRAMES_IDNN = 5
 
 
 Total_steps = 1000
-EPOCHS_TF = 30
-EPOCHS_AE = 30
-EPOCHS_IDNN = 30
+EPOCHS_TF = 20
+EPOCHS_AE = 20
+EPOCHS_IDNN = 20
 
 AUDIO_DIR = "/home/johannes/datasets/IDMT_Traffic/audio"
 train_annotations = "/home/johannes/datasets/IDMT_Traffic/annotation/eusipco_2021_train.txt"

@@ -46,7 +46,7 @@ all_mel_filters = []
 all_seeds = []
 loss_types = []
 
-number_of_mels = [config.N_MELS]
+number_of_mels = [16, 32, 64, 128, 264]
 loss_functions = ['l2']
 
 def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=True):
@@ -64,16 +64,16 @@ def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=Tru
         fig_rocs, axes_rocs = plt.subplots(1, len_scen, figsize=(6 * len_scen, 4))
         fig_error_dists, axes_errors = plt.subplots(1, len_scen, figsize=(7 * len_scen, 4))
     for i in range(len(scenario)):
-        for loss_func in loss_functions:
-            print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type} : Mel Filters: {number_of_mels[0]} : Loss Function {loss_func}")
-            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes, orig_recons = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=config.N_MELS, model_save=model_save, loss_function=loss_func)
+        for mel_filter in number_of_mels:
+            print(f"Starting setup number {i} : {scenario[i].setup_name} : {model_type} : Mel Filters: {mel_filter} : Loss Function {loss_functions[0]}")
+            roc_auc_scores, losses, fp_rate, tp_rate, roc, scores_classes, orig_recons = scenario[i].run(model_type, config.NUMBER_REPEAT_EXPERIMENT, number_mel_bins=mel_filter, model_save=model_save, loss_function=loss_functions[0])
             scores, classes = scores_classes
             print(f"Classes: {classes}")
             all_roc_scores += roc_auc_scores
             all_setups += [scenario[i].setup_name for j in range(len(roc_auc_scores))]
             all_model_types += [str(model_type)[12:] for j in range(len(roc_auc_scores))]
-            all_mel_filters += [config.N_MELS for i in range(len(roc_auc_scores))]
-            loss_types +=[loss_func for i in range(len(roc_auc_scores))]
+            all_mel_filters += [mel_filter for i in range(len(roc_auc_scores))]
+            loss_types +=[loss_functions[0] for i in range(len(roc_auc_scores))]
             all_seeds += [config.RANDOM_SEEDS[j] for j in range(config.NUMBER_REPEAT_EXPERIMENT)]
         
         #plot_and_save_orig_and_recons(orig_recons[4], classes[4], scores[4])
@@ -106,16 +106,16 @@ f"Runs: {config.NUMBER_REPEAT_EXPERIMENT}\n")
 
 #Velocities
 #10 runs each, 30 ep, 15 hours in total
-train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
-train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=True)
-train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.IDNN, plot_roc_and_loss=True)
+#train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.TRANSFORMER, plot_roc_and_loss=True)
+#train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.AUTOENCODER, plot_roc_and_loss=True)
+#train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=config.MODEL_TYPES.IDNN, plot_roc_and_loss=True)
 
 #Vehicles
-#~3 hours
+##~3 hours
 #train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.TRANSFORMER, True)
 #train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.AUTOENCODER, True)
 #train_and_plot([none_scenario_tf, c_scenario_tf, t_scenario_tf, c_t_scenario_tf],config.MODEL_TYPES.IDNN, True)
-
+#
 #Road conditions
 #
 #train_and_plot([road_conditions_setups], config.MODEL_TYPES.TRANSFORMER, True)
@@ -124,7 +124,7 @@ train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=confi
 
 #Experiments
 #bei runs:
-#train_and_plot([c_scenario_tf], config.MODEL_TYPES.IDNN, False)
+train_and_plot([c_scenario_tf, velocity_setups_30_both], config.MODEL_TYPES.TRANSFORMER, False)
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, False)
 #train_and_plot([c_scenario_tf], config.MODEL_TYPES.AUTOENCODER, True, model_save=config.SAVE_MODELS)
 
@@ -136,13 +136,13 @@ train_and_plot([velocity_setup_70_30, velocity_setups_30_both], model_type=confi
 
 print(loss_types)
 print(all_seeds)
-results = {'Normal_Data' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores, 'mel_filters': all_mel_filters, 'seed' : all_seeds, 'loss_funcs': loss_types}
+results = {'Setting' : all_setups, 'Model_Type' : all_model_types, 'ROC_AUC' : all_roc_scores, 'mel_filters': all_mel_filters, 'seed' : all_seeds, 'loss_funcs': loss_types}
 df = pd.DataFrame(results, columns=results.keys())
 df.to_csv(config.RESULT_DIR + 'all_results' + '.csv', sep=',', encoding='utf-8', header=None)
-#plot_mel_filter_experiment(df, axe)
+plot_mel_filter_experiment(df, axe)
 #plot_loss_func_experiment(df, axe)
-plot_all_results(results, axe)
-fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + 'all_results.png')
+#plot_all_results(results, axe)
+fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + 'mel_results.png')
 
 
 end_time = datetime.datetime.now()

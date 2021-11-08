@@ -91,7 +91,7 @@ def plot_loss_func_experiment(df, axe):
   sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='loss_funcs', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
 
 def plot_mel_filter_experiment(df, axe):
-  sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='mel_filters', hue='Model_Type', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
+  sns.pointplot(data=df, ax=axe, y='ROC_AUC', x='mel_filters', hue='Setting', join=False, palette='inferno', dodge=0.2, ci='sd', capsize=.175)
 
 def convert_to_df(losses):
   losses_map = {}

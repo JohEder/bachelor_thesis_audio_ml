@@ -59,7 +59,7 @@ class TrainingSetup():
         if model_type == MODEL_TYPES.TRANSFORMER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #training
-          transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*config.NUMBER_OF_FRAMES, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS)
+          transformer = TransformerModel(EMBEDDING_SIZE, number_mel_bins*config.NUMBER_OF_FRAMES, N_HEADS, DIM_FEED_FORWARD, N_ENCODER_LAYERS, n_mels=number_mel_bins)
           LEARNING_RATE = 0.0001
           WEIGHT_DECAY = 0.0001
           optimizer = AdamW(transformer.parameters(), lr=LEARNING_RATE) #torch.optim.Adam(transformer.parameters(), lr=LEARNING_RATE) 
@@ -71,8 +71,8 @@ class TrainingSetup():
           transformer.to(device)
           transformer.train() #mode
           for epoch in range(1, EPOCHS + 1):
-            losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler, loss_func=loss_function)
-            val_anom_scores, val_targets, _, _ = models.transformer.get_anom_scores(transformer, val_loader, device, loss_func=loss_function) #batch size in evalution is only one
+            losses_epoch = models.transformer.train_epoch(transformer, train_loader, optimizer, epoch, device, scheduler=scheduler, loss_func=loss_function, n_mels=number_mel_bins)
+            val_anom_scores, val_targets, _, _ = models.transformer.get_anom_scores(transformer, val_loader, device, loss_func=loss_function, n_mels=number_mel_bins) #batch size in evalution is only one
             roc_auc = roc_auc_score(val_targets, val_anom_scores)
             losses += losses_epoch
             if len(val_loader) > 50:
@@ -88,7 +88,7 @@ class TrainingSetup():
             print(f"Evaluation ROC Score in epoch {epoch} is {roc_auc}, Best ROC Score is:{roc_auc_best}")
           training_finished = datetime.datetime.now()
           total_training_time = training_finished - training_start
-          summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 43, config.N_MELS*2).to(device))
+          summary = pms.summary(transformer, torch.ones(BATCH_SIZE, 43, number_mel_bins*2).to(device))
         elif model_type == MODEL_TYPES.AUTOENCODER:
           train_loader, val_loader, test_loader = self.get_normal_and_anomalous_data( self.annotations, BATCH_SIZE, BATCH_SIZE_VAL, current_seed, number_mel_bins)
           #print(next(iter(train_loader)).shape)
@@ -167,7 +167,7 @@ class TrainingSetup():
     def evaluate_model(self, best_model, test_loader, device, model_type, mel_bins):
       #model = load_model(model_name)
       if model_type == MODEL_TYPES.TRANSFORMER:
-        test_anom_scores, test_targets, original_class_labels, orig_recons = models.transformer.get_anom_scores(best_model, test_loader, device)
+        test_anom_scores, test_targets, original_class_labels, orig_recons = models.transformer.get_anom_scores(best_model, test_loader, device, n_mels=mel_bins)
         fp_rate, tp_rate, _ = roc_curve(test_targets, test_anom_scores, pos_label=1)
         roc_auc = roc_auc_score(test_targets, test_anom_scores)
         #plot_roc_curve(self.setup_name, fp_rate, tp_rate, roc_auc)

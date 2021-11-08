@@ -98,13 +98,10 @@ class IdmtTrafficDataSet(Dataset):
         return self.annotations.iloc[index, row]
 
     def normalize(self, tensor):
-        #Reasonable reconstruction, bad detection  
-        # Subtract the mean, and scale to the interval [-1,1]
         tensor_minusmean = tensor - tensor.mean()
         return tensor_minusmean / tensor_minusmean.abs().max()
 
-    def normalize_mean(self, tensor):
-        #works really well for reconstruction, and ok for detection        
+    def normalize_mean(self, tensor):      
         return (tensor - tensor.mean()) / (tensor.max() - tensor.min())
 
     def image_normalize(self, tensor):
