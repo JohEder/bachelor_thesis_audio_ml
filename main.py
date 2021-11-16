@@ -47,7 +47,7 @@ all_seeds = []
 loss_types = []
 
 number_of_mels = [16, 32, 64, 128, 264]
-loss_functions = ['l1', 'l2']
+loss_functions = ['l2']
 
 def train_and_plot(scenario, model_type, plot_roc_and_loss=False, model_save=True):
     global all_roc_scores
@@ -142,7 +142,7 @@ df.to_csv(config.RESULT_DIR + 'all_results' + '.csv', sep=',', encoding='utf-8',
 #plot_mel_filter_experiment(df, axe)
 plot_loss_func_experiment(df, axe)
 #plot_all_results(results, axe)
-fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + 'mel_results.png')
+fig_results.savefig(config.RESULT_DIR + c_scenario_tf.setup_name + 'big_asdt.png')
 
 
 end_time = datetime.datetime.now()

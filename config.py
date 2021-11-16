@@ -39,8 +39,8 @@ RANDOM_SEEDS = [42, 9, 17, 4, 7, 32, 29, 20, 34, 12, 35, 89, 36, 67, 89,68]
 
 #params for transformer model architecture
 EMBEDDING_SIZE = 64
-N_HEADS = 4
-N_ENCODER_LAYERS = 4
+N_HEADS = 8
+N_ENCODER_LAYERS = 8
 DROPOUT = 0.0 #is dropout needed for AD? used in most Transformer papers
 DIM_FEED_FORWARD = 256
 
